@@ -296,13 +296,6 @@ def main():
     # Header
     st.markdown('<h1 class="main-header">🎮 Steam Game Recommender</h1>', unsafe_allow_html=True)
     
-    # Sidebar
-    st.sidebar.title("Navigation")
-    page = st.sidebar.selectbox(
-        "Choose a page:",
-        ["🏠 Home", "🎯 Get Recommendations", "🔍 Explore Similar Games", "📊 System Info"]
-    )
-    
     # Load data
     try:
         games_df, recommendations_df, games_metadata, users_df = load_data()
@@ -311,14 +304,19 @@ def main():
         st.error(f"Error loading data or model: {str(e)}")
         st.stop()
     
-    # Page routing
-    if page == "🏠 Home":
+    # Tab Navigation - Much cleaner!
+    tab1, tab2, tab3, tab4 = st.tabs(["🏠 Home", "🎯 Get Recommendations", "🔍 Explore Similar Games", "📊 System Info"])
+    
+    with tab1:
         show_home_page()
-    elif page == "🎯 Get Recommendations":
+    
+    with tab2:
         show_recommendations_page(model, games_df, recommendations_df, games_metadata)
-    elif page == "🔍 Explore Similar Games":
+    
+    with tab3:
         show_similar_games_page(model, games_df, games_metadata)
-    elif page == "📊 System Info":
+    
+    with tab4:
         show_system_info_page(model, games_df, recommendations_df, games_metadata)
 
 
@@ -608,7 +606,62 @@ def show_similar_games_page(model, games_df, games_metadata):
 
 def show_system_info_page(model, games_df, recommendations_df, games_metadata):
     """Display system information and statistics."""
-    st.header("📊 System Information")
+    st.header(" System Information & Analytics")
+    
+    # Data Visualizations Section
+    st.subheader("📈 Data Analytics Dashboard")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Rating Distribution Chart
+        st.markdown("**⭐ Game Rating Distribution**")
+        rating_bins = pd.cut(games_df['positive_ratio'], 
+                           bins=[0, 0.4, 0.6, 0.8, 1.0], 
+                           labels=['Poor (0-40%)', 'Fair (40-60%)', 'Good (60-80%)', 'Excellent (80-100%)'])
+        rating_counts = rating_bins.value_counts().sort_index()
+        st.bar_chart(rating_counts)
+    
+    with col2:
+        # Price Distribution Histogram
+        st.markdown("**💰 Game Price Distribution**")
+        price_bins = pd.cut(games_df['price'], 
+                          bins=[0, 5, 15, 30, 100], 
+                          labels=['Free-$5', '$5-$15', '$15-$30', '$30+'])
+        price_counts = price_bins.value_counts().sort_index()
+        st.bar_chart(price_counts)
+    
+    # Recommendation Method Breakdown
+    st.markdown("**🎯 Recommendation Method Usage**")
+    # Simulate method usage for demo
+    method_data = {
+        'Collaborative Filtering': 45,
+        'Content-Based': 35, 
+        'Hybrid': 20
+    }
+    method_df = pd.DataFrame(list(method_data.items()), columns=['Method', 'Usage %'])
+    st.bar_chart(method_df.set_index('Method'))
+    
+    # Playtime vs Rating Scatter
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**⏱️ Average Playtime Distribution**")
+        playtime_bins = pd.cut(games_df['average_playtime'], 
+                             bins=[0, 60, 300, 1000, 10000], 
+                             labels=['<1h', '1-5h', '5-17h', '17h+'])
+        playtime_counts = playtime_bins.value_counts().sort_index()
+        st.bar_chart(playtime_counts)
+    
+    with col2:
+        st.markdown("**📊 User Interaction Stats**")
+        interaction_data = {
+            'Positive Reviews': recommendations_df['is_recommended'].sum(),
+            'Negative Reviews': len(recommendations_df) - recommendations_df['is_recommended'].sum()
+        }
+        interaction_df = pd.DataFrame(list(interaction_data.items()), columns=['Type', 'Count'])
+        st.bar_chart(interaction_df.set_index('Type'))
+    
+    st.markdown("---")
     
     # Model information
     st.subheader("🤖 Model Information")

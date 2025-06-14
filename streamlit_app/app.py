@@ -1,6 +1,4 @@
-"""
-Steam Game Recommendation System - Streamlit Web Interface
-"""
+"""Steam Game Recommendation System - Streamlit Web Interface"""
 
 import streamlit as st
 import pandas as pd
@@ -31,29 +29,130 @@ st.set_page_config(
 # Custom CSS for better styling
 st.markdown("""
 <style>
+    /* Modern color scheme */
     .main-header {
-        font-size: 3rem;
-        color: #1f77b4;
+        font-size: 3.5rem;
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
         text-align: center;
         margin-bottom: 2rem;
+        font-weight: 700;
     }
+    
+    /* Enhanced game cards */
     .game-card {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 10px;
-        margin: 0.5rem 0;
-        border-left: 4px solid #1f77b4;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        margin: 1rem 0;
+        border: none;
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        transition: transform 0.3s ease;
     }
+    
+    .game-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 40px rgba(31, 38, 135, 0.25);
+    }
+    
+    /* Better metrics */
     .metric-card {
-        background-color: #e8f4fd;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .recommendation-score {
+        font-size: 1.4rem;
+        font-weight: bold;
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    /* Enhanced sidebar */
+    .css-1d391kg {
+        background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    /* Better buttons */
+    .stButton > button {
+        background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 0.5rem 2rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Rating bars */
+    .rating-bar {
+        background-color: #e0e0e0;
+        border-radius: 10px;
+        height: 8px;
+        margin: 5px 0;
+    }
+    
+    .rating-fill {
+        height: 100%;
+        border-radius: 10px;
+        background: linear-gradient(90deg, #ff6b6b, #feca57, #48cae4, #10ac84);
+    }
+    
+    /* Tag styling */
+    .game-tag {
+        display: inline-block;
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        color: white;
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        margin: 2px;
+        font-weight: 500;
+    }
+    
+    /* Info boxes */
+    .info-box {
+        background: linear-gradient(135deg, #667eea15, #764ba215);
+        border-left: 4px solid #667eea;
         padding: 1rem;
         border-radius: 8px;
-        text-align: center;
+        margin: 1rem 0;
     }
-    .recommendation-score {
-        font-size: 1.2rem;
+    
+    /* Stats cards */
+    .stat-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid #f0f0f0;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
         font-weight: bold;
-        color: #1f77b4;
+        color: #667eea;
+    }
+    
+    .stat-label {
+        color: #666;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -96,29 +195,38 @@ def display_game_info(game_id: int, games_df: pd.DataFrame, games_metadata: Dict
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.subheader(game_info['name'])
+        st.subheader(f"🎮 {game_info['name']}")
         
         # Game description
         description = game_meta.get('description', 'No description available.')
         st.write(description[:300] + "..." if len(description) > 300 else description)
         
-        # Game tags
+        # Game tags with styling
         tags = game_meta.get('tags', [])
         if tags:
-            st.write("**Tags:** " + ", ".join(tags[:8]))
+            st.markdown("**🏷️ Tags:**")
+            tags_html = "".join([f'<span class="game-tag">{tag}</span>' for tag in tags[:8]])
+            st.markdown(tags_html, unsafe_allow_html=True)
     
     with col2:
-        # Game metrics
+        # Game metrics with visual enhancements
         st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.metric("Positive Rating", f"{game_info['positive_ratio']:.1%}")
-        st.metric("Price", f"${game_info['price']:.2f}")
-        st.metric("Avg. Playtime", f"{game_info['average_playtime']:.0f} min")
+        
+        # Rating with visual bar
+        rating = game_info['positive_ratio']
+        st.markdown(f"**⭐ Player Rating**")
+        st.markdown(f'<div class="rating-bar"><div class="rating-fill" style="width: {rating*100}%"></div></div>', unsafe_allow_html=True)
+        st.markdown(f"<center>{rating:.1%} positive</center>", unsafe_allow_html=True)
+        
+        st.markdown("---")
+        st.metric("💰 Price", f"${game_info['price']:.2f}")
+        st.metric("⏱️ Avg. Playtime", f"{game_info['average_playtime']:.0f} min")
         st.markdown('</div>', unsafe_allow_html=True)
 
 
 def display_recommendations(recommendations: List[Tuple[int, float, Dict]], games_df: pd.DataFrame, games_metadata: Dict):
     """Display recommendation results in an attractive format."""
-    st.subheader("🎯 Recommended Games for You")
+    st.subheader("🎯 Your Personalized Game Recommendations")
     
     for i, (game_id, score, explanation) in enumerate(recommendations):
         game_info = games_df[games_df['app_id'] == game_id].iloc[0]
@@ -127,43 +235,59 @@ def display_recommendations(recommendations: List[Tuple[int, float, Dict]], game
         with st.container():
             st.markdown('<div class="game-card">', unsafe_allow_html=True)
             
-            col1, col2, col3 = st.columns([3, 1, 1])
+            col1, col2, col3 = st.columns([3, 1.5, 1])
             
             with col1:
-                st.markdown(f"### {i+1}. {game_info['name']}")
+                # Game title with ranking
+                rank_emoji = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"][i] if i < 5 else f"{i+1}."
+                st.markdown(f"### {rank_emoji} {game_info['name']}")
                 
                 # Description
                 description = game_meta.get('description', 'No description available.')
-                st.write(description[:200] + "..." if len(description) > 200 else description)
+                st.write(description[:180] + "..." if len(description) > 180 else description)
                 
-                # Tags
+                # Tags as styled chips
                 tags = game_meta.get('tags', [])
                 if tags:
-                    tag_str = ", ".join(tags[:5])
-                    st.markdown(f"**Tags:** {tag_str}")
+                    tags_html = "".join([f'<span class="game-tag">{tag}</span>' for tag in tags[:5]])
+                    st.markdown(tags_html, unsafe_allow_html=True)
             
             with col2:
+                # Match score with visual progress
                 st.markdown('<div class="recommendation-score">', unsafe_allow_html=True)
-                st.metric("Match Score", f"{score:.3f}")
+                st.markdown("**🎯 Match Score**")
+                score_percent = min(score * 100, 100)  # Convert to percentage
+                st.markdown(f'<div class="rating-bar"><div class="rating-fill" style="width: {score_percent}%"></div></div>', unsafe_allow_html=True)
+                st.markdown(f"<center>{score:.3f}</center>", unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
                 
-                st.write(f"**Rating:** {game_info['positive_ratio']:.1%}")
-                st.write(f"**Price:** ${game_info['price']:.2f}")
+                # Game stats
+                st.markdown("---")
+                rating = game_info['positive_ratio']
+                st.write(f"⭐ **{rating:.1%}** positive")
+                st.write(f"💰 **${game_info['price']:.2f}**")
+                st.write(f"⏱️ **{game_info['average_playtime']:.0f}** min")
             
             with col3:
-                # Explanation
-                st.write("**Why recommended:**")
+                # Recommendation explanation
+                st.markdown("**🤔 Why?**")
                 primary_reason = explanation['primary_reason']
                 if primary_reason == 'collaborative':
-                    st.write("👥 Similar users liked this")
+                    st.markdown("👥 **Similar Users**")
+                    st.write("Users like you enjoyed this")
                 else:
-                    st.write("📝 Similar content/features")
+                    st.markdown("📋 **Similar Content**")
+                    st.write("Similar features/tags")
                 
-                st.write(f"CF: {explanation['cf_score']:.3f}")
-                st.write(f"CB: {explanation['cb_score']:.3f}")
+                # Score breakdown
+                st.markdown("**📊 Breakdown:**")
+                cf_score = explanation['cf_score']
+                cb_score = explanation['cb_score']
+                st.write(f"CF: {cf_score:.2f}")
+                st.write(f"CB: {cb_score:.2f}")
             
             st.markdown('</div>', unsafe_allow_html=True)
-            st.markdown("---")
+            st.markdown("<br>", unsafe_allow_html=True)
 
 
 def main():
@@ -201,49 +325,106 @@ def main():
 def show_home_page():
     """Display the home page with project information."""
     st.markdown("""
-    ## Welcome to the Steam Game Recommendation System! 🎮
+    <div class="info-box">
+    <h2>🎮 Welcome to the Steam Game Recommendation System!</h2>
+    <p>This intelligent recommendation system helps you discover new games based on your preferences and gaming history.</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    This intelligent recommendation system helps you discover new games based on your preferences and gaming history.
+    # Feature overview with icons
+    col1, col2, col3 = st.columns(3)
     
-    ### How it works:
+    with col1:
+        st.markdown("""
+        ### 🤝 Collaborative Filtering
+        **How it works:** Finds users with similar gaming preferences and recommends games they enjoyed.
+        
+        **Benefits:**
+        - Discovers popular games among similar users
+        - Great for finding trending titles
+        - Uses community wisdom
+        """)
     
-    **🤝 Collaborative Filtering**: Finds users with similar gaming preferences and recommends games they enjoyed.
+    with col2:
+        st.markdown("""
+        ### 📝 Content-Based Filtering
+        **How it works:** Analyzes game descriptions, tags, and features to find similar games.
+        
+        **Benefits:**
+        - Finds games with similar themes/mechanics
+        - Works well for niche preferences
+        - Explains recommendations clearly
+        """)
     
-    **📝 Content-Based Filtering**: Analyzes game descriptions, tags, and features to find similar games.
+    with col3:
+        st.markdown("""
+        ### 🔄 Hybrid Approach
+        **How it works:** Combines both methods for more accurate and diverse recommendations.
+        
+        **Benefits:**
+        - Best of both worlds
+        - Handles cold start problems
+        - Adapts to user data availability
+        """)
     
-    **🔄 Hybrid Approach**: Combines both methods for more accurate and diverse recommendations.
+    st.markdown("---")
     
-    ### Features:
-    - **Personalized Recommendations**: Get game suggestions tailored to your preferences
-    - **Similar Game Discovery**: Find games similar to ones you already enjoy
-    - **Detailed Explanations**: Understand why each game was recommended
-    - **Smart Weighting**: System adapts based on available user data
-    
-    ### Getting Started:
-    1. **Get Recommendations**: Select a user ID to see personalized game recommendations
-    2. **Explore Similar Games**: Choose a game to find similar titles
-    3. **System Info**: View technical details about the recommendation algorithms
-    
-    ---
-    
-    **Note**: This system uses sample data for demonstration. In a real implementation, 
-    it would connect to actual Steam user data and game databases.
-    """)
-    
-    # Quick stats
-    st.subheader("📈 Quick Statistics")
-    col1, col2, col3, col4 = st.columns(4)
+    # Quick stats with enhanced visual cards
+    st.subheader("📈 Dataset Overview")
     
     games_df, recommendations_df, games_metadata, _ = load_data()
     
+    col1, col2, col3, col4 = st.columns(4)
+    
     with col1:
-        st.metric("Total Games", len(games_df))
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="stat-number">{len(games_df)}</div>
+            <div class="stat-label">🎮 Total Games</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
     with col2:
-        st.metric("User Interactions", len(recommendations_df))
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="stat-number">{recommendations_df['user_id'].nunique()}</div>
+            <div class="stat-label">👥 Unique Users</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
     with col3:
-        st.metric("Unique Users", recommendations_df['user_id'].nunique())
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="stat-number">{len(recommendations_df):,}</div>
+            <div class="stat-label">💬 User Reviews</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
     with col4:
-        st.metric("Avg. Rating", f"{games_df['positive_ratio'].mean():.1%}")
+        avg_rating = games_df['positive_ratio'].mean()
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="stat-number">{avg_rating:.1%}</div>
+            <div class="stat-label">⭐ Avg. Rating</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Getting started guide
+    st.markdown("""
+    <div class="info-box">
+    <h3>🚀 Getting Started:</h3>
+    <ol>
+        <li><strong>🎯 Get Recommendations:</strong> Select a user ID to see personalized game recommendations</li>
+        <li><strong>🔍 Explore Similar Games:</strong> Choose a game to find similar titles</li>
+        <li><strong>📊 System Info:</strong> View technical details about the recommendation algorithms</li>
+    </ol>
+    
+    <p><strong>📝 Note:</strong> This system uses sample data for demonstration purposes in this school project. 
+    In a real implementation, it would connect to actual Steam user data and game databases.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def show_recommendations_page(model, games_df, recommendations_df, games_metadata):
@@ -251,29 +432,38 @@ def show_recommendations_page(model, games_df, recommendations_df, games_metadat
     st.header("🎯 Get Personalized Game Recommendations")
     
     st.markdown("""
+    <div class="info-box">
     Select a user to see personalized game recommendations based on their gaming history 
     and preferences of similar users.
-    """)
+    </div>
+    """, unsafe_allow_html=True)
     
     # User selection
     available_users = sorted(recommendations_df['user_id'].unique())
     selected_user = st.selectbox(
-        "Select a User ID:",
+        "👤 Select a User ID:",
         available_users,
         help="Choose a user to get personalized recommendations"
     )
     
     # Number of recommendations
     n_recommendations = st.slider(
-        "Number of recommendations:",
+        "📊 Number of recommendations:",
         min_value=3,
         max_value=15,
         value=5,
         help="How many game recommendations to show"
     )
     
-    if st.button("🚀 Get Recommendations", type="primary"):
-        with st.spinner("Generating personalized recommendations..."):
+    if st.button("🚀 Get My Recommendations", type="primary"):
+        # Progress bar for better UX
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        with st.spinner("🔍 Analyzing your gaming preferences..."):
+            progress_bar.progress(20)
+            status_text.text("Loading user data...")
+            
             try:
                 # Get user's gaming history
                 user_games = recommendations_df[
@@ -281,12 +471,16 @@ def show_recommendations_page(model, games_df, recommendations_df, games_metadat
                     (recommendations_df['is_recommended'] == True)
                 ]['item_id'].tolist()
                 
+                progress_bar.progress(40)
+                status_text.text("Finding similar users...")
+                
                 if user_games:
-                    st.info(f"User {selected_user} has liked {len(user_games)} games. "
-                           f"Generating recommendations based on their preferences...")
+                    st.success(f"✅ Found {len(user_games)} games that User {selected_user} has enjoyed!")
                 else:
-                    st.warning(f"User {selected_user} has no positive recommendations. "
-                              f"Using content-based approach...")
+                    st.info(f"ℹ️ User {selected_user} has no positive recommendations. Using content-based approach...")
+                
+                progress_bar.progress(70)
+                status_text.text("Generating recommendations...")
                 
                 # Get recommendations
                 recommendations = model.get_user_recommendations(
@@ -294,20 +488,39 @@ def show_recommendations_page(model, games_df, recommendations_df, games_metadat
                     n_recommendations=n_recommendations
                 )
                 
+                progress_bar.progress(100)
+                status_text.text("Complete! 🎉")
+                
                 if recommendations:
+                    # Clear progress indicators
+                    progress_bar.empty()
+                    status_text.empty()
+                    
+                    # Success message
+                    st.balloons()  # Fun celebration for school project
+                    st.success(f"🎉 Generated {len(recommendations)} personalized recommendations!")
+                    
                     display_recommendations(recommendations, games_df, games_metadata)
                     
                     # Show user's liked games for context
                     if user_games:
-                        st.subheader("📚 Games this user has enjoyed:")
+                        st.markdown("---")
+                        st.subheader("📚 Games this user has previously enjoyed:")
                         liked_games_info = games_df[games_df['app_id'].isin(user_games)]
+                        
+                        # Show liked games in a nice format
                         for _, game in liked_games_info.head(5).iterrows():
-                            st.write(f"• {game['name']} ({game['positive_ratio']:.1%} positive)")
+                            st.markdown(f"⭐ **{game['name']}** - {game['positive_ratio']:.1%} positive rating")
                 else:
-                    st.error("No recommendations could be generated for this user.")
+                    progress_bar.empty()
+                    status_text.empty()
+                    st.error("❌ No recommendations could be generated for this user.")
                     
             except Exception as e:
-                st.error(f"Error generating recommendations: {str(e)}")
+                progress_bar.empty()
+                status_text.empty()
+                st.error(f"❌ Error generating recommendations: {str(e)}")
+                st.info("💡 Try selecting a different user or check the system logs.")
 
 
 def show_similar_games_page(model, games_df, games_metadata):

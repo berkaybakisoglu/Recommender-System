@@ -1,0 +1,37 @@
+{
+  "1": {
+    "description": "An exciting action game",
+    "tags": [
+      "Action",
+      "Adventure"
+    ]
+  },
+  "2": {
+    "description": "A strategic puzzle game",
+    "tags": [
+      "Strategy",
+      "Puzzle"
+    ]
+  },
+  "3": {
+    "description": "A role-playing adventure",
+    "tags": [
+      "RPG",
+      "Adventure"
+    ]
+  },
+  "4": {
+    "description": "A racing simulation",
+    "tags": [
+      "Racing",
+      "Simulation"
+    ]
+  },
+  "5": {
+    "description": "A multiplayer shooter",
+    "tags": [
+      "Shooter",
+      "Multiplayer"
+    ]
+  }
+}

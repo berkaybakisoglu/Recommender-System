@@ -14,7 +14,7 @@ import logging
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from src.data_processing.data_loader import SteamDataLoader, create_sample_data
-from src.models.hybrid.hybrid_recommender import train_hybrid_model
+from src.models.hybrid.simple_hybrid_recommender import train_simple_hybrid_model
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -78,7 +78,7 @@ def load_data():
 def load_model(games_df, recommendations_df, games_metadata):
     """Load and cache the trained hybrid recommendation model."""
     with st.spinner("Training recommendation model... This may take a moment."):
-        model = train_hybrid_model(
+        model = train_simple_hybrid_model(
             games_df, 
             recommendations_df, 
             games_metadata,

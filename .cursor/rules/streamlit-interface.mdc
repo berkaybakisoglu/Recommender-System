@@ -1,5 +1,172 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: false
 ---
+# Streamlit Web Interface Implementation
+
+## Interface Architecture
+
+### Main Application Structure
+- **Entry Point**: `streamlit_app/app.py` - Main Streamlit application
+- **Components**: Modular UI components in `streamlit_app/components/`
+- **Pages**: Multi-page application structure
+- **State Management**: Session state for user interactions
+
+### Core Pages and Features
+
+#### Home Page
+- **Welcome Section**: Project introduction and overview
+- **Usage Instructions**: Step-by-step guide for users
+- **System Information**: Brief explanation of recommendation approaches
+- **Navigation**: Links to recommendation and analysis pages
+
+#### Game Recommendation Page
+- **Game Selection**: 
+  - Searchable dropdown with all available games
+  - Auto-complete functionality for easy game finding
+  - Display game information (description, tags, rating)
+  
+- **Recommendation Display**:
+  - Top-k recommendations (configurable k value)
+  - Game cards with title, description, and key metrics
+  - Similarity scores and recommendation confidence
+  - Visual indicators for recommendation strength
+
+#### Analysis Dashboard (Optional)
+- **System Performance**: Evaluation metrics visualization
+- **Data Statistics**: Dataset overview and insights
+- **Algorithm Comparison**: Performance comparison charts
+
+## UI Components Implementation
+
+### Game Selection Component
+```python
+# streamlit_app/components/game_selector.py
+import streamlit as st
+
+def game_selector(games_df):
+    """Interactive game selection with search functionality"""
+    selected_game = st.selectbox(
+        "Select a game you've enjoyed:",
+        options=games_df['name'].tolist(),
+        format_func=lambda x: f"{x} ({games_df[games_df['name']==x]['positive_ratio'].iloc[0]:.1%} positive)"
+    )
+    return selected_game
+```
+
+### Recommendation Display Component
+```python
+# streamlit_app/components/recommendation_display.py
+def display_recommendations(recommendations, games_metadata):
+    """Display recommended games in an attractive format"""
+    for i, (game_id, score) in enumerate(recommendations):
+        with st.container():
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.subheader(f"{i+1}. {game_name}")
+                st.write(game_description[:200] + "...")
+                st.write(f"Tags: {', '.join(game_tags[:5])}")
+            with col2:
+                st.metric("Similarity", f"{score:.2f}")
+                st.write(f"Rating: {positive_ratio:.1%}")
+```
+
+## User Experience Guidelines
+
+### Interface Design Principles
+- **Simplicity**: Clean, intuitive interface with minimal cognitive load
+- **Responsiveness**: Fast loading and smooth interactions
+- **Accessibility**: Clear labels, good contrast, keyboard navigation
+- **Mobile-Friendly**: Responsive design for different screen sizes
+
+### User Flow Design
+1. **Landing**: User arrives at home page with clear instructions
+2. **Selection**: User selects a game they've enjoyed
+3. **Processing**: System generates recommendations (with loading indicator)
+4. **Results**: Display recommendations with explanations
+5. **Exploration**: User can select different games or adjust parameters
+
+### Error Handling and Feedback
+- **Loading States**: Progress indicators during recommendation generation
+- **Error Messages**: Clear, helpful error messages for edge cases
+- **Empty States**: Guidance when no recommendations available
+- **Success Feedback**: Confirmation when recommendations are generated
+
+## Technical Implementation
+
+### Streamlit Configuration
+```python
+# streamlit_app/config.py
+import streamlit as st
+
+def configure_page():
+    st.set_page_config(
+        page_title="Steam Game Recommender",
+        page_icon="🎮",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+```
+
+### Session State Management
+- **User Selections**: Store selected games and preferences
+- **Model Cache**: Cache trained models for faster responses
+- **Recommendation History**: Track user's recommendation requests
+- **Settings**: User preferences and configuration options
+
+### Performance Optimization
+- **Model Caching**: Use `@st.cache_data` for model loading
+- **Data Caching**: Cache processed datasets
+- **Lazy Loading**: Load components only when needed
+- **Batch Processing**: Efficient recommendation generation
+
+## Integration with Backend
+
+### Model Integration
+- **Model Loading**: Load trained recommendation models at startup
+- **Prediction Pipeline**: Connect UI selections to model predictions
+- **Result Processing**: Format model outputs for display
+- **Error Handling**: Graceful handling of model failures
+
+### Data Integration
+- **Game Database**: Access to games.csv and metadata
+- **User Simulation**: Simulate user preferences for demonstration
+- **Real-time Updates**: Handle data updates without restart
+
+## Deployment Considerations
+
+### Streamlit Cloud Deployment
+- **Requirements**: Complete requirements.txt with all dependencies
+- **Secrets Management**: Secure handling of any API keys or credentials
+- **Resource Limits**: Optimize for Streamlit Cloud resource constraints
+- **Performance**: Minimize memory usage and loading times
+
+### Local Development
+- **Development Server**: Easy local testing with `streamlit run app.py`
+- **Hot Reload**: Automatic updates during development
+- **Debug Mode**: Enhanced error messages and logging
+- **Environment Setup**: Clear setup instructions for developers
+
+## File Organization
+```
+streamlit_app/
+├── app.py                  # Main application entry point
+├── config.py              # Streamlit configuration
+├── components/            # Reusable UI components
+│   ├── game_selector.py
+│   ├── recommendation_display.py
+│   └── metrics_dashboard.py
+├── pages/                 # Multi-page application
+│   ├── home.py
+│   ├── recommendations.py
+│   └── analysis.py
+├── utils/                 # Utility functions
+│   ├── data_loader.py
+│   └── model_interface.py
+└── assets/               # Static assets (images, CSS)
+    ├── style.css
+    └── logo.png
+```
+
+

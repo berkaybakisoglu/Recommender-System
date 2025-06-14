@@ -1,5 +1,113 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: false
 ---
+# Evaluation Metrics and Testing Framework
+
+## Core Evaluation Metrics
+
+### Precision@k
+- **Definition**: Accuracy of top-k recommendations
+- **Formula**: (Relevant items in top-k) / k
+- **Purpose**: Measures how many recommended games user actually likes
+- **Implementation**: `src/evaluation/precision_at_k.py`
+- **Typical k values**: 5, 10, 20
+
+### Recall@k  
+- **Definition**: Coverage of relevant recommendations
+- **Formula**: (Relevant items in top-k) / (Total relevant items)
+- **Purpose**: Measures how well system captures user's potential interests
+- **Implementation**: `src/evaluation/recall_at_k.py`
+- **Use case**: Ensures system doesn't miss games user would enjoy
+
+### RMSE (Root Mean Squared Error)
+- **Definition**: Prediction accuracy for rating-based models
+- **Formula**: sqrt(mean((predicted_rating - actual_rating)²))
+- **Purpose**: Measures prediction error in collaborative filtering
+- **Implementation**: Built into Surprise library
+- **Primary use**: SVD and other rating prediction models
+
+## Additional Evaluation Metrics
+
+### Coverage
+- **Item Coverage**: Percentage of games that can be recommended
+- **User Coverage**: Percentage of users who can receive recommendations
+- **Purpose**: Ensures system works for diverse users and games
+
+### Diversity
+- **Intra-list Diversity**: Variety within single user's recommendations
+- **Calculation**: Average pairwise distance between recommended items
+- **Purpose**: Avoid recommending too similar games
+
+### Novelty
+- **Definition**: How unexpected/surprising recommendations are
+- **Measurement**: Inverse of item popularity
+- **Purpose**: Balance popular and niche game recommendations
+
+## Evaluation Framework Implementation
+
+### Cross-Validation Strategy
+```python
+# Example evaluation pipeline
+from surprise.model_selection import cross_validate
+from src.evaluation.metrics import precision_recall_at_k
+
+# 5-fold cross-validation
+cv_results = cross_validate(algorithm, data, measures=['RMSE'], cv=5)
+
+# Custom metrics evaluation
+precision_k = precision_recall_at_k(predictions, k=10)
+```
+
+### Test Data Splitting
+- **Temporal Split**: Use chronological order for realistic evaluation
+- **Random Split**: 80% training, 20% testing
+- **User-based Split**: Ensure all users have both train and test data
+- **Implementation**: `src/evaluation/data_splitter.py`
+
+### Baseline Comparisons
+- **Random Recommendations**: Random game selection baseline
+- **Popularity-Based**: Most popular games baseline  
+- **User Average**: User's average rating prediction
+- **Item Average**: Game's average rating prediction
+
+## Model Comparison Framework
+
+### A/B Testing Setup
+- Compare different algorithm combinations
+- Test various hybrid system weights
+- Evaluate parameter tuning results
+- Statistical significance testing
+
+### Performance Reporting
+- **Metric Dashboard**: Comprehensive performance overview
+- **Per-User Analysis**: Individual user recommendation quality
+- **Game Category Analysis**: Performance across different game types
+- **Implementation**: `src/evaluation/report_generator.py`
+
+## Evaluation Best Practices
+
+### Data Leakage Prevention
+- Strict train/test separation
+- No future information in training data
+- Proper cross-validation procedures
+
+### Statistical Significance
+- Multiple random seeds for robust results
+- Confidence intervals for metrics
+- Hypothesis testing for model comparisons
+
+### Real-World Validation
+- User study considerations
+- Online evaluation metrics
+- Business impact measurements
+
+## Implementation Guidelines
+- All metrics should be implemented as reusable functions
+- Consistent data format across evaluation modules
+- Automated evaluation pipeline for model comparison
+- Visualization tools for metric interpretation
+- Export results in standard formats (CSV, JSON)
+
+

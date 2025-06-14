@@ -1,5 +1,186 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: false
 ---
+# Development Workflow and Best Practices
+
+## Development Environment Setup
+
+### Primary Development Platform
+- **Google Colab**: Main development environment with GPU support
+- **Jupyter Notebooks**: For experimentation and prototyping in `notebooks/`
+- **Local Development**: For Streamlit app development and testing
+- **GitHub**: Version control and collaboration
+
+### Environment Configuration
+```python
+# Install required packages in Colab
+!pip install pandas numpy scikit-learn surprise streamlit matplotlib seaborn
+
+# Mount Google Drive for data persistence
+from google.colab import drive
+drive.mount('/content/drive')
+```
+
+## Project Development Phases
+
+### Phase 1: Data Exploration and Preprocessing
+1. **Data Loading**: Implement data loading utilities in `src/data_processing/`
+2. **Exploratory Data Analysis**: Create notebooks for data understanding
+3. **Data Cleaning**: Handle missing values, outliers, and inconsistencies
+4. **Data Validation**: Ensure data quality and consistency
+5. **Preprocessing Pipelines**: Create reusable data transformation functions
+
+### Phase 2: Model Development
+1. **Collaborative Filtering**: Implement KNNBasic and SVD models
+2. **Content-Based Filtering**: Develop TF-IDF and similarity-based models
+3. **Model Training**: Create training pipelines for each approach
+4. **Individual Testing**: Test each model separately
+5. **Performance Optimization**: Tune hyperparameters and optimize performance
+
+### Phase 3: Hybrid System Integration
+1. **Score Normalization**: Implement score normalization functions
+2. **Weighted Combination**: Develop hybrid recommendation logic
+3. **Dynamic Weighting**: Implement adaptive weighting strategies
+4. **Integration Testing**: Test combined system performance
+5. **Fallback Mechanisms**: Handle edge cases and failures
+
+### Phase 4: Evaluation Framework
+1. **Metrics Implementation**: Develop evaluation metric functions
+2. **Cross-Validation**: Implement robust evaluation procedures
+3. **Baseline Comparisons**: Create baseline recommendation systems
+4. **Performance Analysis**: Generate comprehensive evaluation reports
+5. **Statistical Testing**: Ensure statistical significance of results
+
+### Phase 5: Web Interface Development
+1. **Streamlit Setup**: Create basic application structure
+2. **UI Components**: Develop reusable interface components
+3. **Backend Integration**: Connect UI to recommendation models
+4. **User Experience**: Implement smooth user interactions
+5. **Testing and Deployment**: Test interface and deploy to Streamlit Cloud
+
+## Coding Standards and Conventions
+
+### Python Code Style
+- **PEP 8**: Follow Python style guidelines
+- **Type Hints**: Use type annotations for function parameters and returns
+- **Docstrings**: Document all functions and classes with clear descriptions
+- **Variable Naming**: Use descriptive, snake_case variable names
+- **Function Length**: Keep functions focused and under 50 lines when possible
+
+### Code Organization Principles
+```python
+# Example function structure
+def calculate_cosine_similarity(
+    feature_matrix: np.ndarray, 
+    target_index: int
+) -> np.ndarray:
+    """
+    Calculate cosine similarity between target item and all other items.
+    
+    Args:
+        feature_matrix: Matrix of item features (n_items x n_features)
+        target_index: Index of target item
+        
+    Returns:
+        Array of similarity scores for all items
+    """
+    # Implementation here
+    pass
+```
+
+### File and Directory Naming
+- **Modules**: Use lowercase with underscores (e.g., `data_processor.py`)
+- **Classes**: Use PascalCase (e.g., `RecommendationEngine`)
+- **Constants**: Use UPPER_CASE (e.g., `DEFAULT_K_VALUE = 10`)
+- **Directories**: Use lowercase with underscores
+
+## Version Control Workflow
+
+### Git Branch Strategy
+- **main**: Production-ready code
+- **develop**: Integration branch for features
+- **feature/**: Individual feature development branches
+- **hotfix/**: Critical bug fixes
+
+### Commit Message Format
+```
+type(scope): brief description
+
+Detailed explanation of changes if needed
+
+- Bullet points for multiple changes
+- Reference issue numbers: #123
+```
+
+### Code Review Process
+1. **Feature Branch**: Develop features in separate branches
+2. **Pull Request**: Create PR with clear description and testing notes
+3. **Code Review**: Team review for code quality and functionality
+4. **Testing**: Ensure all tests pass before merging
+5. **Merge**: Merge to develop branch after approval
+
+## Testing Strategy
+
+### Unit Testing
+- **Model Testing**: Test individual recommendation algorithms
+- **Data Processing**: Test data loading and preprocessing functions
+- **Utility Functions**: Test helper and utility functions
+- **Framework**: Use pytest for unit testing
+
+### Integration Testing
+- **End-to-End**: Test complete recommendation pipeline
+- **API Testing**: Test Streamlit interface functionality
+- **Data Flow**: Verify data flows correctly through system
+- **Error Handling**: Test error conditions and edge cases
+
+### Performance Testing
+- **Model Performance**: Evaluate recommendation quality metrics
+- **Speed Testing**: Measure recommendation generation time
+- **Memory Usage**: Monitor memory consumption
+- **Scalability**: Test with different data sizes
+
+## Documentation Standards
+
+### Code Documentation
+- **Inline Comments**: Explain complex logic and algorithms
+- **Function Docstrings**: Document parameters, returns, and examples
+- **Class Documentation**: Explain class purpose and usage
+- **Module Headers**: Describe module purpose and main functions
+
+### Project Documentation
+- **README.md**: Project overview, setup instructions, and usage
+- **API Documentation**: Document public interfaces and functions
+- **Algorithm Documentation**: Explain recommendation algorithms used
+- **Deployment Guide**: Instructions for running and deploying system
+
+## Quality Assurance
+
+### Code Quality Tools
+- **Linting**: Use flake8 or pylint for code style checking
+- **Formatting**: Use black for consistent code formatting
+- **Type Checking**: Use mypy for static type checking
+- **Security**: Use bandit for security vulnerability scanning
+
+### Performance Monitoring
+- **Profiling**: Use cProfile for performance analysis
+- **Memory Profiling**: Monitor memory usage patterns
+- **Logging**: Implement comprehensive logging throughout system
+- **Metrics Collection**: Track system performance metrics
+
+## Collaboration Guidelines
+
+### Team Communication
+- **Daily Standups**: Regular progress updates and blocker discussions
+- **Code Reviews**: Constructive feedback and knowledge sharing
+- **Documentation**: Keep documentation updated with code changes
+- **Issue Tracking**: Use GitHub issues for bug reports and feature requests
+
+### Knowledge Sharing
+- **Technical Discussions**: Regular discussions about algorithms and approaches
+- **Code Walkthroughs**: Explain complex implementations to team
+- **Best Practices**: Share learnings and best practices
+- **External Resources**: Share relevant papers, tutorials, and resources
+
+

@@ -1,0 +1,82 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Recommendation Algorithms Implementation
+
+## Collaborative Filtering Implementation
+
+### Primary Algorithms
+- **KNNBasic**: K-nearest neighbors approach using Surprise library
+  - Find users with similar game preferences
+  - Recommend games liked by similar users
+  - Implementation in `src/models/collaborative/knn_model.py`
+
+- **SVD (Singular Value Decomposition)**: Matrix factorization technique
+  - Alternative collaborative filtering approach
+  - Better for handling sparse data
+  - Implementation in `src/models/collaborative/svd_model.py`
+
+### Surprise Library Usage
+```python
+from surprise import Dataset, Reader, KNNBasic, SVD
+from surprise.model_selection import train_test_split
+```
+
+## Content-Based Filtering Implementation
+
+### Text Processing Pipeline
+- **TF-IDF Vectorization**: Convert game descriptions to numerical vectors
+  - Use `sklearn.feature_extraction.text.TfidfVectorizer`
+  - Process game description texts from games_metadata.json
+  - Implementation in `src/models/content_based/tfidf_model.py`
+
+- **Tag Processing**: Handle categorical game tags
+  - Use `sklearn.preprocessing.MultiLabelBinarizer`
+  - Convert tag lists to binary feature vectors
+  - Combine with other game features (price, positive_ratio)
+
+### Similarity Calculation
+- **Cosine Similarity**: Measure similarity between games
+  - Use `sklearn.metrics.pairwise.cosine_similarity`
+  - Calculate similarity matrix for all games
+  - Implementation in `src/models/content_based/similarity_calculator.py`
+
+## Hybrid System Implementation
+
+### Weighted Combination Approach
+- **Score Normalization**: Normalize scores from both systems to [0,1] range
+- **Weighted Average**: Combine scores using configurable weights
+  - Default: 60% Collaborative Filtering + 40% Content-Based
+  - Adjustable based on user data availability
+  - Implementation in `src/models/hybrid/hybrid_recommender.py`
+
+### Dynamic Weighting Strategy
+- **Cold Start Problem**: Higher content-based weight for new users
+- **Data-Rich Users**: Higher collaborative filtering weight
+- **Fallback Mechanism**: Switch to content-based when CF fails
+
+## Model Training and Prediction Pipeline
+
+### Training Process
+1. Load and preprocess data using `src/data_processing/`
+2. Split data into train/test sets
+3. Train collaborative filtering models on user-item interactions
+4. Build content-based similarity matrices from game features
+5. Combine models in hybrid approach
+
+### Prediction Process
+1. Get user's game history and preferences
+2. Generate collaborative filtering recommendations
+3. Generate content-based recommendations
+4. Combine and rank final recommendations
+5. Return top-k recommendations with confidence scores
+
+## Code Organization Guidelines
+- Separate model classes for each algorithm type
+- Common interface for all recommendation models
+- Modular design for easy algorithm swapping
+- Configuration files for hyperparameters
+- Logging and error handling throughout pipeline
+

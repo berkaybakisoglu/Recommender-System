@@ -1,0 +1,48 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Steam Game Recommendation System - Project Overview
+
+## Project Purpose
+This project develops a recommendation system for Steam platform users to discover new games similar to ones they've previously played and rated positively. The system aims to enhance user engagement and satisfaction on gaming platforms.
+
+## System Architecture
+The project follows a three-tier architecture:
+
+### 1. Data Layer
+- **games.csv**: Game metadata including app_id, name, positive_ratio, price, average_playtime
+- **recommendations.csv**: User-game interactions with is_recommended and playtime data
+- **games_metadata.json**: Detailed game descriptions and tags for content-based filtering
+- **users.csv**: User statistics (total games, review counts) - not used in initial phase
+
+### 2. Processing Layer (Modeling)
+Two main approaches implemented:
+- **Collaborative Filtering**: Using KNNBasic and SVD algorithms via Surprise library
+- **Content-Based Filtering**: TF-IDF vectorization with cosine similarity for game descriptions
+- **Hybrid System**: Weighted combination of both approaches (e.g., 60% CF + 40% CB)
+
+### 3. Presentation Layer
+- **Streamlit** web interface for user interaction
+- Game selection and recommendation display
+- User-friendly visualization of results
+
+## Key Technologies
+- **Python**: Primary programming language
+- **pandas, numpy**: Data processing and analysis
+- **scikit-learn**: TF-IDF vectorization, cosine similarity
+- **surprise**: Collaborative filtering models
+- **Streamlit**: Web interface development
+- **Google Colab**: Development environment
+- **GitHub**: Version control
+
+## Evaluation Metrics
+- **Precision@k**: Accuracy of top-k recommendations
+- **Recall@k**: Coverage of relevant recommendations
+- **RMSE**: Prediction error for rating-based models
+
+## Development Environment
+- Primary: Google Colab with GPU support
+- Version Control: GitHub for collaboration and documentation
+

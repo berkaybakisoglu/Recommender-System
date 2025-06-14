@@ -1,0 +1,63 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Data Structure and File Organization
+
+## Data Files Structure
+The project uses Steam platform data organized in the following files:
+
+### Core Data Files
+- **data/games.csv**: Primary game information
+  - `app_id`: Unique game identifier
+  - `name`: Game title
+  - `positive_ratio`: User positive review percentage
+  - `price`: Game price
+  - `average_playtime`: Average user playtime
+  
+- **data/recommendations.csv**: User-game interaction data
+  - `user_id`: Unique user identifier
+  - `item_id`: Game identifier (matches app_id)
+  - `is_recommended`: Boolean recommendation status
+  - `playtime`: User's total playtime for the game
+  
+- **data/games_metadata.json**: Rich game content data
+  - `description`: Detailed game description text
+  - `tags`: List of game category tags
+  - Used primarily for content-based filtering
+  
+- **data/users.csv**: User profile data (future use)
+  - `user_id`: Unique user identifier
+  - `total_games`: Total games owned
+  - `review_count`: Number of reviews written
+
+## Project Directory Structure
+```
+recommendation/
+├── data/                    # Data files directory
+│   ├── games.csv
+│   ├── recommendations.csv
+│   ├── games_metadata.json
+│   └── users.csv
+├── src/                     # Source code directory
+│   ├── data_processing/     # Data loading and preprocessing
+│   ├── models/             # Recommendation algorithms
+│   │   ├── collaborative/  # Collaborative filtering models
+│   │   ├── content_based/  # Content-based filtering models
+│   │   └── hybrid/         # Hybrid recommendation models
+│   ├── evaluation/         # Model evaluation metrics
+│   └── utils/              # Utility functions
+├── notebooks/              # Jupyter/Colab notebooks
+├── streamlit_app/          # Streamlit web interface
+├── requirements.txt        # Python dependencies
+└── README.md              # Project documentation
+```
+
+## Data Processing Guidelines
+- Use **pandas** for CSV file operations
+- Use **json** library for games_metadata.json processing
+- Implement data validation and cleaning in `src/data_processing/`
+- Handle missing values and data inconsistencies
+- Create data preprocessing pipelines for model input
+

@@ -1,21 +1,29 @@
 """
-Hybrid Recommendation System combining Collaborative and Content-Based Filtering.
+Enhanced Hybrid Recommendation System combining Enhanced Collaborative and Content-Based Filtering.
+Leverages rich Steam dataset features for superior recommendations.
 """
 
 import pandas as pd
 import numpy as np
 from typing import List, Tuple, Dict, Optional, Union
 import logging
+from datetime import datetime
 
-from src.models.collaborative.knn_model import KNNCollaborativeFilter
-from src.models.content_based.tfidf_model import TFIDFContentFilter
+from src.models.collaborative.knn_model import EnhancedKNNCollaborativeFilter, KNNCollaborativeFilter
+from src.models.content_based.tfidf_model import EnhancedTFIDFContentFilter, TFIDFContentFilter
 
 logger = logging.getLogger(__name__)
 
 
-class HybridRecommender:
+class EnhancedHybridRecommender:
     """
-    Hybrid recommendation system combining collaborative and content-based filtering.
+    Enhanced hybrid recommendation system with Steam-specific features.
+    
+    New Features:
+    - Advanced dynamic weighting based on user profile
+    - Enhanced explanation generation
+    - Multiple combination strategies
+    - Comprehensive performance tracking
     """
     
     def __init__(
@@ -23,21 +31,27 @@ class HybridRecommender:
         cf_weight: float = 0.6,
         cb_weight: float = 0.4,
         min_cf_interactions: int = 5,
-        dynamic_weighting: bool = True
+        dynamic_weighting: bool = True,
+        combination_strategy: str = 'weighted_average',
+        use_enhanced_models: bool = True
     ):
         """
-        Initialize hybrid recommendation system.
+        Initialize enhanced hybrid recommendation system.
         
         Args:
             cf_weight: Weight for collaborative filtering (default 60%)
             cb_weight: Weight for content-based filtering (default 40%)
             min_cf_interactions: Minimum interactions needed for CF
             dynamic_weighting: Whether to use dynamic weighting based on user data
+            combination_strategy: How to combine CF and CB scores ('weighted_average', 'rank_fusion')
+            use_enhanced_models: Whether to use enhanced models with Steam features
         """
         self.cf_weight = cf_weight
         self.cb_weight = cb_weight
         self.min_cf_interactions = min_cf_interactions
         self.dynamic_weighting = dynamic_weighting
+        self.combination_strategy = combination_strategy
+        self.use_enhanced_models = use_enhanced_models
         
         # Ensure weights sum to 1
         total_weight = cf_weight + cb_weight
@@ -52,50 +66,116 @@ class HybridRecommender:
         self.games_df = None
         self.recommendations_df = None
         self.games_metadata = None
+        self.users_df = None
+        
+        # Performance tracking
+        self.recommendation_stats = {
+            'total_requests': 0,
+            'cf_requests': 0,
+            'cb_requests': 0,
+            'hybrid_requests': 0,
+            'fallback_requests': 0
+        }
         
         self.is_trained = False
+        
+        logger.info(f"🔧 Initialized Enhanced Hybrid Recommender:")
+        logger.info(f"   ⚖️  CF weight: {self.cf_weight:.1%} | CB weight: {self.cb_weight:.1%}")
+        logger.info(f"   🔄 Dynamic weighting: {dynamic_weighting}")
+        logger.info(f"   🧠 Combination strategy: {combination_strategy}")
+        logger.info(f"   ⭐ Enhanced models: {use_enhanced_models}")
     
     def train(
         self,
         games_df: pd.DataFrame,
         recommendations_df: pd.DataFrame,
         games_metadata: Dict,
+        users_df: Optional[pd.DataFrame] = None,
         cf_params: Optional[Dict] = None,
-        cb_params: Optional[Dict] = None
+        cb_params: Optional[Dict] = None,
+        sample_size: Optional[int] = None
     ) -> None:
         """
-        Train both collaborative filtering and content-based models.
+        Train both enhanced collaborative filtering and content-based models.
         
         Args:
             games_df: Game metadata DataFrame
             recommendations_df: User-item interaction data
             games_metadata: Dictionary with game descriptions and tags
+            users_df: User profile data (optional)
             cf_params: Parameters for collaborative filtering model
             cb_params: Parameters for content-based filtering model
+            sample_size: Sample size for content-based model training
         """
-        logger.info("Training hybrid recommendation system...")
+        logger.info("🚀 Training Enhanced Hybrid Recommendation System...")
         
         self.games_df = games_df
         self.recommendations_df = recommendations_df
         self.games_metadata = games_metadata
+        self.users_df = users_df
         
-        # Default parameters
-        cf_params = cf_params or {'k': 40}
-        cb_params = cb_params or {'max_features': 5000}
+        # Default parameters for enhanced models
+        if self.use_enhanced_models:
+            cf_params = cf_params or {
+                'k': 40,
+                'use_review_quality': True,
+                'use_temporal_decay': True,
+                'use_user_authority': True
+            }
+            cb_params = cb_params or {
+                'max_features': 2000,
+                'tag_weight': 2.0,
+                'use_platform_features': True,
+                'use_price_features': True,
+                'use_temporal_features': True
+            }
+        else:
+            cf_params = cf_params or {'k': 40}
+            cb_params = cb_params or {'max_features': 5000}
+        
+        # Log training parameters
+        logger.info("📊 Training Configuration:")
+        logger.info(f"   🎮 Games: {len(games_df):,}")
+        logger.info(f"   💬 Recommendations: {len(recommendations_df):,}")
+        logger.info(f"   👥 Users: {len(users_df):,}" if users_df is not None else "   👥 Users: N/A")
+        logger.info(f"   📋 Metadata: {len(games_metadata):,}")
+        
+        start_time = datetime.now()
         
         # Train collaborative filtering model
-        logger.info("Training collaborative filtering component...")
-        self.cf_model = KNNCollaborativeFilter(**cf_params)
-        cf_data = self.cf_model.prepare_data(recommendations_df, games_df)
+        logger.info("🤝 Training Collaborative Filtering Component...")
+        if self.use_enhanced_models:
+            self.cf_model = EnhancedKNNCollaborativeFilter(**cf_params)
+            cf_data = self.cf_model.prepare_enhanced_data(recommendations_df, games_df, users_df)
+        else:
+            self.cf_model = KNNCollaborativeFilter(**cf_params)
+            cf_data = self.cf_model.prepare_data(recommendations_df, games_df)
+        
         self.cf_model.train(cf_data)
+        cf_time = (datetime.now() - start_time).total_seconds()
+        logger.info(f"✅ CF training completed in {cf_time:.2f} seconds")
         
         # Train content-based filtering model
-        logger.info("Training content-based filtering component...")
-        self.cb_model = TFIDFContentFilter(**cb_params)
-        self.cb_model.train(games_df, games_metadata)
+        cb_start = datetime.now()
+        logger.info("📄 Training Content-Based Filtering Component...")
+        if self.use_enhanced_models:
+            self.cb_model = EnhancedTFIDFContentFilter(**cb_params)
+            self.cb_model.train(games_df, games_metadata, sample_size)
+        else:
+            self.cb_model = TFIDFContentFilter(**cb_params)
+            self.cb_model.train(games_df, games_metadata)
         
+        cb_time = (datetime.now() - cb_start).total_seconds()
+        logger.info(f"✅ CB training completed in {cb_time:.2f} seconds")
+        
+        total_time = (datetime.now() - start_time).total_seconds()
         self.is_trained = True
-        logger.info("Hybrid recommendation system training completed")
+        
+        logger.info("🎉 Enhanced Hybrid System Training Summary:")
+        logger.info(f"   ⚡ Total training time: {total_time:.2f} seconds")
+        logger.info(f"   🤝 CF model ready: {self.cf_model.is_trained}")
+        logger.info(f"   📄 CB model ready: {self.cb_model.is_trained}")
+        logger.info(f"   🎯 System ready for recommendations!")
     
     def _normalize_scores(self, scores: List[Tuple[int, float]]) -> List[Tuple[int, float]]:
         """
@@ -143,9 +223,38 @@ class HybridRecommender:
         ]
         return len(user_interactions)
     
+    def _get_user_authority_score(self, user_id: int) -> float:
+        """
+        Get user authority score based on review count and quality.
+        
+        Args:
+            user_id: User identifier
+            
+        Returns:
+            User authority score [0, 1]
+        """
+        if self.users_df is None:
+            return 0.5  # Default authority
+        
+        user_data = self.users_df[self.users_df['user_id'] == user_id]
+        if len(user_data) == 0:
+            return 0.3  # Low authority for unknown users
+        
+        review_count = user_data.iloc[0]['reviews']
+        
+        # Convert review count to authority score
+        if review_count <= 1:
+            return 0.2
+        elif review_count <= 10:
+            return 0.5
+        elif review_count <= 50:
+            return 0.7
+        else:
+            return 0.9
+    
     def _calculate_dynamic_weights(self, user_id: int) -> Tuple[float, float]:
         """
-        Calculate dynamic weights based on user interaction history.
+        Calculate enhanced dynamic weights based on user profile and interaction history.
         
         Args:
             user_id: User identifier
@@ -157,24 +266,139 @@ class HybridRecommender:
             return self.cf_weight, self.cb_weight
         
         interaction_count = self._get_user_interaction_count(user_id)
+        user_authority = self._get_user_authority_score(user_id)
         
-        # Cold start problem: favor content-based for users with few interactions
-        if interaction_count < self.min_cf_interactions:
-            cf_weight = 0.2
-            cb_weight = 0.8
-        elif interaction_count < self.min_cf_interactions * 2:
-            # Gradually increase CF weight
-            cf_weight = 0.4
-            cb_weight = 0.6
+        logger.debug(f"🔍 User {user_id} profile: {interaction_count} interactions, {user_authority:.2f} authority")
+        
+        # Enhanced dynamic weighting strategy
+        if interaction_count == 0:
+            # New user: pure content-based
+            cf_weight, cb_weight = 0.0, 1.0
+            strategy = "new_user"
+        elif interaction_count < self.min_cf_interactions:
+            # Cold start: favor content-based but consider user authority
+            base_cf = 0.2
+            authority_boost = user_authority * 0.3
+            cf_weight = min(0.4, base_cf + authority_boost)
+            cb_weight = 1.0 - cf_weight
+            strategy = "cold_start"
+        elif interaction_count < self.min_cf_interactions * 3:
+            # Warming up: balanced approach with authority adjustment
+            base_cf = 0.5
+            authority_adjustment = (user_authority - 0.5) * 0.2
+            cf_weight = max(0.3, min(0.7, base_cf + authority_adjustment))
+            cb_weight = 1.0 - cf_weight
+            strategy = "warming_up"
         else:
-            # Use default weights for users with sufficient data
-            cf_weight = self.cf_weight
-            cb_weight = self.cb_weight
+            # Experienced user: favor collaborative filtering
+            base_cf = self.cf_weight
+            # High authority users get more CF weight
+            authority_boost = max(0, user_authority - 0.5) * 0.2
+            cf_weight = min(0.8, base_cf + authority_boost)
+            cb_weight = 1.0 - cf_weight
+            strategy = "experienced"
         
-        logger.debug(f"User {user_id} has {interaction_count} interactions, "
-                    f"using weights CF: {cf_weight:.2f}, CB: {cb_weight:.2f}")
+        logger.debug(f"   ⚖️  Strategy: {strategy} | CF: {cf_weight:.2f}, CB: {cb_weight:.2f}")
         
         return cf_weight, cb_weight
+    
+    def _combine_recommendations_rank_fusion(
+        self,
+        cf_recommendations: List[Tuple[int, float]],
+        cb_recommendations: List[Tuple[int, float]],
+        cf_weight: float,
+        cb_weight: float
+    ) -> List[Tuple[int, float]]:
+        """
+        Combine recommendations using rank fusion (Borda count method).
+        
+        Args:
+            cf_recommendations: CF recommendations
+            cb_recommendations: CB recommendations
+            cf_weight: Weight for collaborative filtering
+            cb_weight: Weight for content-based filtering
+            
+        Returns:
+            Combined recommendations
+        """
+        # Create rank dictionaries
+        cf_ranks = {game_id: len(cf_recommendations) - i for i, (game_id, _) in enumerate(cf_recommendations)}
+        cb_ranks = {game_id: len(cb_recommendations) - i for i, (game_id, _) in enumerate(cb_recommendations)}
+        
+        # Get all unique games
+        all_games = set(cf_ranks.keys()) | set(cb_ranks.keys())
+        
+        # Calculate weighted rank scores
+        combined_scores = {}
+        for game_id in all_games:
+            cf_rank = cf_ranks.get(game_id, 0)
+            cb_rank = cb_ranks.get(game_id, 0)
+            
+            # Weighted Borda count
+            combined_score = (cf_rank * cf_weight) + (cb_rank * cb_weight)
+            combined_scores[game_id] = combined_score
+        
+        # Sort by combined score
+        sorted_games = sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)
+        
+        return [(game_id, score) for game_id, score in sorted_games]
+    
+    def _combine_recommendations(
+        self,
+        cf_recommendations: List[Tuple[int, float]],
+        cb_recommendations: List[Tuple[int, float]],
+        cf_weight: float,
+        cb_weight: float
+    ) -> List[Tuple[int, float]]:
+        """
+        Combine recommendations from CF and CB models with enhanced strategies.
+        
+        Args:
+            cf_recommendations: CF recommendations
+            cb_recommendations: CB recommendations
+            cf_weight: Weight for collaborative filtering
+            cb_weight: Weight for content-based filtering
+            
+        Returns:
+            Combined recommendations
+        """
+        logger.debug(f"🔗 Combining recommendations using {self.combination_strategy}")
+        logger.debug(f"   🤝 CF recommendations: {len(cf_recommendations)}")
+        logger.debug(f"   📄 CB recommendations: {len(cb_recommendations)}")
+        
+        if self.combination_strategy == 'rank_fusion':
+            return self._combine_recommendations_rank_fusion(
+                cf_recommendations, cb_recommendations, cf_weight, cb_weight
+            )
+        
+        # Default: weighted_average strategy
+        # Normalize scores first
+        cf_normalized = self._normalize_scores(cf_recommendations)
+        cb_normalized = self._normalize_scores(cb_recommendations)
+        
+        # Create dictionaries for easier lookup
+        cf_dict = dict(cf_normalized)
+        cb_dict = dict(cb_normalized)
+        
+        # Get all unique games
+        all_games = set(cf_dict.keys()) | set(cb_dict.keys())
+        
+        # Calculate weighted average scores
+        combined_scores = {}
+        for game_id in all_games:
+            cf_score = cf_dict.get(game_id, 0)
+            cb_score = cb_dict.get(game_id, 0)
+            
+            # Weighted average
+            combined_score = (cf_score * cf_weight) + (cb_score * cb_weight)
+            combined_scores[game_id] = combined_score
+        
+        # Sort by combined score
+        sorted_games = sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)
+        
+        logger.debug(f"   ✅ Combined {len(sorted_games)} unique recommendations")
+        
+        return sorted_games
     
     def get_user_recommendations(
         self,
@@ -183,7 +407,7 @@ class HybridRecommender:
         fallback_to_popular: bool = True
     ) -> List[Tuple[int, float, Dict]]:
         """
-        Get hybrid recommendations for a user.
+        Get enhanced hybrid recommendations for a user.
         
         Args:
             user_id: User identifier
@@ -196,111 +420,139 @@ class HybridRecommender:
         if not self.is_trained:
             raise ValueError("Model must be trained before making recommendations")
         
+        # Update stats
+        self.recommendation_stats['total_requests'] += 1
+        
+        logger.info(f"🎯 Generating hybrid recommendations for user {user_id}")
+        
         # Calculate dynamic weights
         cf_weight, cb_weight = self._calculate_dynamic_weights(user_id)
         
+        # Determine strategy
+        if cf_weight == 0.0:
+            strategy = "content_only"
+        elif cb_weight == 0.0:
+            strategy = "collaborative_only"
+        else:
+            strategy = f"hybrid_{self.combination_strategy}"
+        
+        logger.info(f"   🧠 Strategy: {strategy} (CF: {cf_weight:.1%}, CB: {cb_weight:.1%})")
+        
         # Get collaborative filtering recommendations
         cf_recommendations = []
-        try:
-            cf_recommendations = self.cf_model.get_user_recommendations(
-                user_id, n_recommendations * 2  # Get more to have options
-            )
-            cf_recommendations = self._normalize_scores(cf_recommendations)
-            logger.debug(f"CF generated {len(cf_recommendations)} recommendations for user {user_id}")
-        except Exception as e:
-            logger.warning(f"CF failed for user {user_id}: {str(e)}")
+        if cf_weight > 0:
+            try:
+                self.recommendation_stats['cf_requests'] += 1
+                cf_recommendations = self.cf_model.get_user_recommendations(
+                    user_id, n_recommendations * 2  # Get more to have options
+                )
+                cf_recommendations = self._normalize_scores(cf_recommendations)
+                logger.debug(f"   🤝 CF generated {len(cf_recommendations)} recommendations")
+            except Exception as e:
+                logger.warning(f"   ⚠️  CF failed for user {user_id}: {str(e)}")
+                cf_weight = 0.0
+                cb_weight = 1.0
         
         # Get content-based recommendations
         cb_recommendations = []
-        try:
-            # Get user's liked games for content-based recommendations
-            user_games = self._get_user_liked_games(user_id)
-            if user_games:
-                cb_recommendations = self.cb_model.get_user_recommendations(
-                    user_games, n_recommendations * 2
-                )
+        if cb_weight > 0:
+            try:
+                self.recommendation_stats['cb_requests'] += 1
+                # Get user's liked games for content-based recommendations
+                user_liked_games = self._get_user_liked_games(user_id)
+                if user_liked_games:
+                    # Use CB model's user recommendation method if available
+                    if hasattr(self.cb_model, 'get_user_recommendations'):
+                        cb_recommendations = self.cb_model.get_user_recommendations(
+                            user_liked_games, n_recommendations * 2
+                        )
+                    else:
+                        # Fallback: aggregate similar games for each liked game
+                        all_cb_scores = {}
+                        for liked_game in user_liked_games[:5]:  # Limit to avoid too much computation
+                            similar_games = self.cb_model.get_similar_games(
+                                liked_game, n_recommendations, exclude_self=True
+                            )
+                            for game_id, score in similar_games:
+                                if game_id not in user_liked_games:
+                                    if game_id not in all_cb_scores:
+                                        all_cb_scores[game_id] = []
+                                    all_cb_scores[game_id].append(score)
+                        
+                        # Average scores for each game
+                        cb_recommendations = [
+                            (game_id, np.mean(scores)) 
+                            for game_id, scores in all_cb_scores.items()
+                        ]
+                        cb_recommendations.sort(key=lambda x: x[1], reverse=True)
+                        cb_recommendations = cb_recommendations[:n_recommendations * 2]
+                else:
+                    logger.info(f"   📄 No liked games found for user {user_id}, using popular games")
+                    cb_recommendations = self._get_popular_games_fallback(n_recommendations)
+                
                 cb_recommendations = self._normalize_scores(cb_recommendations)
-                logger.debug(f"CB generated {len(cb_recommendations)} recommendations for user {user_id}")
-        except Exception as e:
-            logger.warning(f"CB failed for user {user_id}: {str(e)}")
+                logger.debug(f"   📄 CB generated {len(cb_recommendations)} recommendations")
+            except Exception as e:
+                logger.warning(f"   ⚠️  CB failed for user {user_id}: {str(e)}")
+                cb_weight = 0.0
+                cf_weight = 1.0
         
         # Combine recommendations
-        combined_scores = self._combine_recommendations(
-            cf_recommendations, cb_recommendations, cf_weight, cb_weight
-        )
+        if cf_recommendations and cb_recommendations:
+            self.recommendation_stats['hybrid_requests'] += 1
+            combined_recommendations = self._combine_recommendations(
+                cf_recommendations, cb_recommendations, cf_weight, cb_weight
+            )
+            logger.debug(f"   🔗 Combined into {len(combined_recommendations)} recommendations")
+        elif cf_recommendations:
+            combined_recommendations = cf_recommendations
+            logger.debug(f"   🤝 Using CF only: {len(combined_recommendations)} recommendations")
+        elif cb_recommendations:
+            combined_recommendations = cb_recommendations
+            logger.debug(f"   📄 Using CB only: {len(combined_recommendations)} recommendations")
+        else:
+            if fallback_to_popular:
+                self.recommendation_stats['fallback_requests'] += 1
+                combined_recommendations = self._get_popular_games_fallback(n_recommendations)
+                logger.info(f"   🔄 Using popular games fallback: {len(combined_recommendations)} recommendations")
+            else:
+                combined_recommendations = []
+                logger.warning(f"   ❌ No recommendations available for user {user_id}")
         
-        # Fallback to popular games if no recommendations
-        if not combined_scores and fallback_to_popular:
-            combined_scores = self._get_popular_games_fallback(n_recommendations)
-        
-        # Add explanations
-        recommendations_with_explanations = []
-        for game_id, score in combined_scores[:n_recommendations]:
+        # Generate explanations and limit results
+        final_recommendations = []
+        for i, (game_id, score) in enumerate(combined_recommendations[:n_recommendations]):
             explanation = self._generate_explanation(
                 game_id, cf_recommendations, cb_recommendations, cf_weight, cb_weight
             )
-            recommendations_with_explanations.append((game_id, score, explanation))
+            explanation['strategy'] = strategy
+            final_recommendations.append((game_id, score, explanation))
         
-        return recommendations_with_explanations
+        logger.info(f"✅ Generated {len(final_recommendations)} hybrid recommendations for user {user_id}")
+        if final_recommendations:
+            avg_score = np.mean([score for _, score, _ in final_recommendations])
+            logger.info(f"   📈 Average recommendation score: {avg_score:.3f}")
+        
+        return final_recommendations
     
     def _get_user_liked_games(self, user_id: int) -> List[int]:
         """
-        Get list of games that user has recommended/liked.
+        Get list of games the user has liked (recommended).
         
         Args:
             user_id: User identifier
             
         Returns:
-            List of game IDs user has liked
+            List of game IDs the user has liked
         """
         if self.recommendations_df is None:
             return []
         
         user_data = self.recommendations_df[
-            (self.recommendations_df['user_id'] == user_id) &
+            (self.recommendations_df['user_id'] == user_id) & 
             (self.recommendations_df['is_recommended'] == True)
         ]
-        
         return user_data['item_id'].tolist()
-    
-    def _combine_recommendations(
-        self,
-        cf_recommendations: List[Tuple[int, float]],
-        cb_recommendations: List[Tuple[int, float]],
-        cf_weight: float,
-        cb_weight: float
-    ) -> List[Tuple[int, float]]:
-        """
-        Combine CF and CB recommendations using weighted average.
-        
-        Args:
-            cf_recommendations: Collaborative filtering recommendations
-            cb_recommendations: Content-based recommendations
-            cf_weight: Weight for CF scores
-            cb_weight: Weight for CB scores
-            
-        Returns:
-            List of (game_id, combined_score) tuples
-        """
-        # Convert to dictionaries for easier lookup
-        cf_dict = dict(cf_recommendations)
-        cb_dict = dict(cb_recommendations)
-        
-        # Get all unique game IDs
-        all_games = set(cf_dict.keys()) | set(cb_dict.keys())
-        
-        combined_scores = []
-        for game_id in all_games:
-            cf_score = cf_dict.get(game_id, 0.0)
-            cb_score = cb_dict.get(game_id, 0.0)
-            
-            # Weighted combination
-            combined_score = cf_weight * cf_score + cb_weight * cb_score
-            combined_scores.append((game_id, combined_score))
-        
-        # Sort by combined score
-        combined_scores.sort(key=lambda x: x[1], reverse=True)
-        return combined_scores
     
     def _generate_explanation(
         self,
@@ -323,20 +575,32 @@ class HybridRecommender:
         Returns:
             Dictionary with explanation details
         """
+        explanation = {
+            'cf_weight': cf_weight,
+            'cb_weight': cb_weight,
+            'cf_score': 0.0,
+            'cb_score': 0.0,
+            'source': 'unknown'
+        }
+        
+        # Find scores from each model
         cf_dict = dict(cf_recommendations)
         cb_dict = dict(cb_recommendations)
         
-        cf_score = cf_dict.get(game_id, 0.0)
-        cb_score = cb_dict.get(game_id, 0.0)
+        if game_id in cf_dict:
+            explanation['cf_score'] = cf_dict[game_id]
+        if game_id in cb_dict:
+            explanation['cb_score'] = cb_dict[game_id]
         
-        explanation = {
-            'cf_score': cf_score,
-            'cb_score': cb_score,
-            'cf_weight': cf_weight,
-            'cb_weight': cb_weight,
-            'combined_score': cf_weight * cf_score + cb_weight * cb_score,
-            'primary_reason': 'collaborative' if cf_score > cb_score else 'content_based'
-        }
+        # Determine primary source
+        if explanation['cf_score'] > 0 and explanation['cb_score'] > 0:
+            explanation['source'] = 'hybrid'
+        elif explanation['cf_score'] > 0:
+            explanation['source'] = 'collaborative'
+        elif explanation['cb_score'] > 0:
+            explanation['source'] = 'content_based'
+        else:
+            explanation['source'] = 'fallback'
         
         return explanation
     
@@ -345,25 +609,30 @@ class HybridRecommender:
         Get popular games as fallback recommendations.
         
         Args:
-            n_recommendations: Number of recommendations needed
+            n_recommendations: Number of recommendations to return
             
         Returns:
-            List of (game_id, popularity_score) tuples
+            List of (game_id, score) tuples for popular games
         """
         if self.games_df is None:
             return []
         
-        # Sort by positive ratio and average playtime
-        popular_games = self.games_df.nlargest(
-            n_recommendations, 
-            ['positive_ratio', 'average_playtime']
+        # Sort games by positive ratio and average playtime
+        popular_games = self.games_df.copy()
+        
+        # Create popularity score (weighted by positive ratio and playtime)
+        popular_games['popularity_score'] = (
+            popular_games['positive_ratio'] * 0.7 + 
+            (popular_games['average_playtime'] / popular_games['average_playtime'].max()) * 0.3
         )
         
+        # Sort by popularity score
+        popular_games = popular_games.sort_values('popularity_score', ascending=False)
+        
+        # Return top games
         recommendations = []
-        for _, game in popular_games.iterrows():
-            # Use positive ratio as popularity score
-            score = game['positive_ratio']
-            recommendations.append((game['app_id'], score))
+        for _, game in popular_games.head(n_recommendations).iterrows():
+            recommendations.append((game['app_id'], game['popularity_score']))
         
         return recommendations
     
@@ -379,7 +648,7 @@ class HybridRecommender:
         Args:
             game_id: Target game identifier
             n_recommendations: Number of similar games to return
-            method: Method to use ('content_based', 'collaborative', or 'hybrid')
+            method: Method to use ('content_based', 'collaborative', 'hybrid')
             
         Returns:
             List of (game_id, similarity_score) tuples
@@ -387,23 +656,22 @@ class HybridRecommender:
         if not self.is_trained:
             raise ValueError("Model must be trained before making recommendations")
         
+        logger.info(f"🔍 Finding similar games to {game_id} using {method} method")
+        
         if method == 'content_based':
             return self.cb_model.get_similar_games(game_id, n_recommendations)
         elif method == 'collaborative':
-            # For collaborative, we need to find users who liked this game
-            # and see what other games they liked
             return self._get_cf_similar_games(game_id, n_recommendations)
         elif method == 'hybrid':
-            # Combine both approaches
+            # Combine both methods
             cb_similar = self.cb_model.get_similar_games(game_id, n_recommendations)
             cf_similar = self._get_cf_similar_games(game_id, n_recommendations)
             
-            cb_similar = self._normalize_scores(cb_similar)
-            cf_similar = self._normalize_scores(cf_similar)
-            
-            return self._combine_recommendations(
-                cf_similar, cb_similar, self.cf_weight, self.cb_weight
-            )[:n_recommendations]
+            # Combine with equal weights
+            combined = self._combine_recommendations(
+                cf_similar, cb_similar, 0.5, 0.5
+            )
+            return combined[:n_recommendations]
         else:
             raise ValueError(f"Unknown method: {method}")
     
@@ -422,37 +690,41 @@ class HybridRecommender:
             return []
         
         # Find users who liked this game
-        users_who_liked = self.recommendations_df[
-            (self.recommendations_df['item_id'] == game_id) &
+        game_users = self.recommendations_df[
+            (self.recommendations_df['item_id'] == game_id) & 
             (self.recommendations_df['is_recommended'] == True)
         ]['user_id'].tolist()
         
-        if not users_who_liked:
+        if not game_users:
             return []
         
         # Find other games these users liked
-        other_games = self.recommendations_df[
-            (self.recommendations_df['user_id'].isin(users_who_liked)) &
-            (self.recommendations_df['item_id'] != game_id) &
-            (self.recommendations_df['is_recommended'] == True)
+        similar_games_scores = {}
+        for user_id in game_users[:20]:  # Limit to avoid too much computation
+            user_recommendations = self.cf_model.get_user_recommendations(
+                user_id, n_recommendations * 2
+            )
+            
+            for similar_game_id, score in user_recommendations:
+                if similar_game_id != game_id:  # Exclude the target game
+                    if similar_game_id not in similar_games_scores:
+                        similar_games_scores[similar_game_id] = []
+                    similar_games_scores[similar_game_id].append(score)
+        
+        # Average scores
+        similar_games = [
+            (game_id, np.mean(scores)) 
+            for game_id, scores in similar_games_scores.items()
         ]
         
-        # Count how many users liked each game
-        game_counts = other_games['item_id'].value_counts()
+        # Sort by average score
+        similar_games.sort(key=lambda x: x[1], reverse=True)
         
-        # Calculate similarity as proportion of overlapping users
-        total_users = len(users_who_liked)
-        similar_games = []
-        
-        for other_game_id, count in game_counts.head(n_recommendations).items():
-            similarity = count / total_users
-            similar_games.append((other_game_id, similarity))
-        
-        return similar_games
+        return similar_games[:n_recommendations]
     
     def get_model_info(self) -> Dict:
         """
-        Get information about the hybrid model.
+        Get comprehensive information about the hybrid model.
         
         Returns:
             Dictionary with model information
@@ -462,19 +734,76 @@ class HybridRecommender:
         
         info = {
             "status": "trained",
+            "model_type": "Enhanced Hybrid Recommender",
             "cf_weight": self.cf_weight,
             "cb_weight": self.cb_weight,
             "dynamic_weighting": self.dynamic_weighting,
-            "min_cf_interactions": self.min_cf_interactions
+            "combination_strategy": self.combination_strategy,
+            "use_enhanced_models": self.use_enhanced_models,
+            "cf_model": self.cf_model.get_model_info() if self.cf_model else {},
+            "cb_model": self.cb_model.get_model_info() if self.cb_model else {},
+            "recommendation_stats": self.recommendation_stats.copy()
         }
         
-        if self.cf_model:
-            info["cf_model"] = self.cf_model.get_model_info()
-        
-        if self.cb_model:
-            info["cb_model"] = self.cb_model.get_model_info()
-        
         return info
+
+
+# Keep existing class for backward compatibility
+class HybridRecommender(EnhancedHybridRecommender):
+    """
+    Backward compatibility wrapper for the enhanced hybrid model.
+    """
+    
+    def __init__(self, cf_weight: float = 0.6, cb_weight: float = 0.4, min_cf_interactions: int = 5, dynamic_weighting: bool = True):
+        logger.warning("⚠️  Using deprecated HybridRecommender. Use EnhancedHybridRecommender for better performance.")
+        super().__init__(
+            cf_weight=cf_weight,
+            cb_weight=cb_weight,
+            min_cf_interactions=min_cf_interactions,
+            dynamic_weighting=dynamic_weighting,
+            use_enhanced_models=False  # Disable enhancements for backward compatibility
+        )
+
+
+def train_enhanced_hybrid_model(
+    games_df: pd.DataFrame,
+    recommendations_df: pd.DataFrame,
+    games_metadata: Dict,
+    users_df: Optional[pd.DataFrame] = None,
+    cf_weight: float = 0.6,
+    cb_weight: float = 0.4,
+    combination_strategy: str = 'weighted_average',
+    sample_size: Optional[int] = None
+) -> EnhancedHybridRecommender:
+    """
+    Convenience function to train an enhanced hybrid recommendation model.
+    
+    Args:
+        games_df: Game metadata DataFrame
+        recommendations_df: User-item interaction data
+        games_metadata: Dictionary with game descriptions and tags
+        users_df: User profile data (optional)
+        cf_weight: Weight for collaborative filtering
+        cb_weight: Weight for content-based filtering
+        combination_strategy: How to combine CF and CB scores
+        sample_size: Sample size for content-based model training
+        
+    Returns:
+        Trained EnhancedHybridRecommender model
+    """
+    logger.info("🚀 Starting Enhanced Hybrid Model Training Pipeline...")
+    
+    model = EnhancedHybridRecommender(
+        cf_weight=cf_weight, 
+        cb_weight=cb_weight,
+        combination_strategy=combination_strategy,
+        use_enhanced_models=True
+    )
+    
+    model.train(games_df, recommendations_df, games_metadata, users_df, sample_size=sample_size)
+    
+    logger.info("✅ Enhanced Hybrid Model Training Pipeline Complete!")
+    return model
 
 
 def train_hybrid_model(
@@ -483,56 +812,84 @@ def train_hybrid_model(
     games_metadata: Dict,
     cf_weight: float = 0.6,
     cb_weight: float = 0.4
-) -> HybridRecommender:
+) -> EnhancedHybridRecommender:
     """
-    Convenience function to train a hybrid recommendation model.
-    
-    Args:
-        games_df: Game metadata DataFrame
-        recommendations_df: User-item interaction data
-        games_metadata: Dictionary with game descriptions and tags
-        cf_weight: Weight for collaborative filtering
-        cb_weight: Weight for content-based filtering
-        
-    Returns:
-        Trained HybridRecommender model
+    Backward compatibility function.
     """
-    model = HybridRecommender(cf_weight=cf_weight, cb_weight=cb_weight)
+    logger.warning("⚠️  Using deprecated train_hybrid_model. Use train_enhanced_hybrid_model for better performance.")
+    model = EnhancedHybridRecommender(cf_weight=cf_weight, cb_weight=cb_weight)
     model.train(games_df, recommendations_df, games_metadata)
-    
     return model
 
 
 if __name__ == "__main__":
-    # Example usage
-    from src.data_processing.data_loader import SteamDataLoader, create_sample_data
+    # Example usage with enhanced hybrid model
+    import sys
+    import os
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
     
-    # Load or create sample data
+    from src.data_processing.data_loader_v2 import SteamDataLoaderV2
+    
+    # Configure logging for demo
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
+    
     try:
-        loader = SteamDataLoader()
-        games_df, recommendations_df, games_metadata, _ = loader.load_all_data()
-    except FileNotFoundError:
-        print("Creating sample data for testing...")
-        create_sample_data()
-        loader = SteamDataLoader()
-        games_df, recommendations_df, games_metadata, _ = loader.load_all_data()
-    
-    # Train hybrid model
-    hybrid_model = train_hybrid_model(
-        games_df, recommendations_df, games_metadata,
-        cf_weight=0.6, cb_weight=0.4
-    )
-    
-    # Get model info
-    print("Hybrid Model Info:", hybrid_model.get_model_info())
-    
-    # Get recommendations for user 1
-    recommendations = hybrid_model.get_user_recommendations(user_id=1, n_recommendations=3)
-    print(f"Hybrid recommendations for User 1:")
-    for game_id, score, explanation in recommendations:
-        print(f"  Game {game_id}: {score:.3f} (CF: {explanation['cf_score']:.3f}, "
-              f"CB: {explanation['cb_score']:.3f})")
-    
-    # Get similar games to game 1
-    similar_games = hybrid_model.get_similar_games(game_id=1, n_recommendations=3, method='hybrid')
-    print(f"Games similar to Game 1: {similar_games}") 
+        # Load data
+        logger.info("🔄 Loading Steam dataset...")
+        loader = SteamDataLoaderV2()
+        games_df, recommendations_df, games_metadata, users_df = loader.load_all_data(sample_recommendations=2000)
+        
+        # Train enhanced hybrid model
+        logger.info("🚀 Training Enhanced Hybrid Model...")
+        enhanced_hybrid = train_enhanced_hybrid_model(
+            games_df, 
+            recommendations_df, 
+            games_metadata,
+            users_df,
+            cf_weight=0.6,
+            cb_weight=0.4,
+            combination_strategy='weighted_average',
+            sample_size=3000  # Sample 3000 games for CB model
+        )
+        
+        # Get model info
+        cf_info = enhanced_hybrid.cf_model.get_model_info()
+        cb_info = enhanced_hybrid.cb_model.get_model_info()
+        
+        logger.info("📊 Enhanced Hybrid Model Info:")
+        logger.info(f"   🤝 CF Model: {cf_info.get('model_type', 'Unknown')}")
+        logger.info(f"   📄 CB Model: {cb_info.get('model_type', 'Unknown')}")
+        logger.info(f"   🎯 Total games: {cf_info.get('n_users', 0):,} users, {cb_info.get('n_games', 0):,} games")
+        
+        # Test recommendations for different user types
+        if len(recommendations_df) > 0:
+            # Get users with different interaction counts
+            user_interaction_counts = recommendations_df['user_id'].value_counts()
+            
+            # Test cold start user (few interactions)
+            cold_start_users = user_interaction_counts[user_interaction_counts <= 2].index
+            if len(cold_start_users) > 0:
+                cold_user = cold_start_users[0]
+                logger.info(f"🧊 Testing cold start user {cold_user} ({user_interaction_counts[cold_user]} interactions):")
+                
+                cold_recommendations = enhanced_hybrid.get_user_recommendations(cold_user, n_recommendations=5)
+                for i, (game_id, score, explanation) in enumerate(cold_recommendations[:3], 1):
+                    game_name = games_df[games_df['app_id'] == game_id]['name'].iloc[0]
+                    logger.info(f"   {i}. {game_name} (Score: {score:.3f})")
+                    logger.info(f"      Strategy: {explanation.get('strategy', 'N/A')} | CF: {explanation.get('cf_weight', 0):.1%} | CB: {explanation.get('cb_weight', 0):.1%}")
+            
+            # Test experienced user (many interactions)
+            experienced_users = user_interaction_counts[user_interaction_counts >= 10].index
+            if len(experienced_users) > 0:
+                exp_user = experienced_users[0]
+                logger.info(f"👨‍💼 Testing experienced user {exp_user} ({user_interaction_counts[exp_user]} interactions):")
+                
+                exp_recommendations = enhanced_hybrid.get_user_recommendations(exp_user, n_recommendations=5)
+                for i, (game_id, score, explanation) in enumerate(exp_recommendations[:3], 1):
+                    game_name = games_df[games_df['app_id'] == game_id]['name'].iloc[0]
+                    logger.info(f"   {i}. {game_name} (Score: {score:.3f})")
+                    logger.info(f"      Strategy: {explanation.get('strategy', 'N/A')} | CF: {explanation.get('cf_weight', 0):.1%} | CB: {explanation.get('cb_weight', 0):.1%}")
+                
+    except Exception as e:
+        logger.error(f"❌ Demo failed: {e}")
+        raise 

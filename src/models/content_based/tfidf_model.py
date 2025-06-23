@@ -529,7 +529,24 @@ class EnhancedTFIDFContentFilter:
             Dictionary with model information and enhancement statistics
         """
         if not self.is_trained:
-            return {"status": "not_trained"}
+            return {
+                "status": "not_trained",
+                "feature_matrix_shape": "N/A",
+                "tfidf_features": "N/A", 
+                "tag_features": "N/A",
+                "numerical_features": "N/A"
+            }
+        
+        # Calculate feature breakdown
+        tfidf_feature_count = len(self.tfidf_vectorizer.get_feature_names_out()) if self.tfidf_vectorizer else 0
+        tag_feature_count = len(self.tag_binarizer.classes_) if self.tag_binarizer else 0
+        
+        # Count numerical features
+        numerical_feature_count = 0
+        if hasattr(self, 'feature_scaler') and self.feature_scaler:
+            numerical_feature_count = self.feature_scaler.n_features_in_
+        elif 'positive_ratio' in self.games_df.columns and 'average_playtime' in self.games_df.columns:
+            numerical_feature_count = 2  # positive_ratio + average_playtime
         
         base_info = {
             "status": "trained",
@@ -537,7 +554,12 @@ class EnhancedTFIDFContentFilter:
             "n_games": len(self.games_df),
             "n_features": self.feature_matrix.shape[1],
             "tfidf_max_features": self.max_features,
-            "tag_weight": self.tag_weight
+            "tag_weight": self.tag_weight,
+            # UI-expected keys
+            "feature_matrix_shape": f"{self.feature_matrix.shape[0]:,} × {self.feature_matrix.shape[1]:,}",
+            "tfidf_features": f"{tfidf_feature_count:,}",
+            "tag_features": f"{tag_feature_count:,}",
+            "numerical_features": f"{numerical_feature_count:,}"
         }
         
         # Add enhancement information
@@ -667,7 +689,7 @@ if __name__ == "__main__":
         # Load data
         logger.info("🔄 Loading Steam dataset...")
         loader = SteamDataLoaderV2()
-        games_df, recommendations_df, games_metadata, users_df = loader.load_all_data(sample_recommendations=1000)
+        games_df, recommendations_df, games_metadata, users_df = loader.load_all_data()
         
         # Train enhanced content-based model with manageable sample size
         logger.info("🚀 Training Enhanced Content-Based Model...")

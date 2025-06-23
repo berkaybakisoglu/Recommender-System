@@ -32,7 +32,10 @@ class EnhancedKNNCollaborativeFilter:
         use_review_quality: bool = True,
         use_temporal_decay: bool = True,
         use_user_authority: bool = True,
-        temporal_decay_days: int = 365
+        temporal_decay_days: int = 365,
+        use_implicit_feedback: bool = True,
+        implicit_weight: float = 0.3,
+        min_positive_rating: float = 0.7
     ):
         """
         Initialize enhanced KNN collaborative filtering model.
@@ -58,6 +61,9 @@ class EnhancedKNNCollaborativeFilter:
         self.use_temporal_decay = use_temporal_decay
         self.use_user_authority = use_user_authority
         self.temporal_decay_days = temporal_decay_days
+        self.use_implicit_feedback = use_implicit_feedback
+        self.implicit_weight = implicit_weight
+        self.min_positive_rating = min_positive_rating
         
         # Model components
         self.model = None
@@ -73,6 +79,10 @@ class EnhancedKNNCollaborativeFilter:
         logger.info(f"   ⏰ Temporal decay: {use_temporal_decay}")
         logger.info(f"   👤 User authority weighting: {use_user_authority}")
         logger.info(f"   📅 Temporal decay period: {temporal_decay_days} days")
+        logger.info(f"   🎮 Implicit feedback (playtime): {use_implicit_feedback}")
+        if use_implicit_feedback:
+            logger.info(f"   📈 Implicit weight: {implicit_weight}")
+            logger.info(f"   ⭐ Min positive rating: {min_positive_rating}")
         logger.info(f"   🔧 Similarity measure: {self.sim_options['name']}")
         logger.info(f"   🤝 Minimum support: {self.sim_options.get('min_support', 'N/A')}")
     
@@ -156,7 +166,7 @@ class EnhancedKNNCollaborativeFilter:
         if len(user_data) == 0:
             return 0.8  # Slightly lower for unknown users
         
-        review_count = user_data.iloc[0]['reviews']
+        review_count = user_data.iloc[0]['total_reviews']
         
         # Apply logarithmic scaling for authority
         if review_count <= 1:
@@ -198,8 +208,59 @@ class EnhancedKNNCollaborativeFilter:
         # Start with copy of recommendations
         enhanced_df = recommendations_df.copy()
         
-        # Convert boolean recommendations to base ratings
-        enhanced_df['base_rating'] = enhanced_df['is_recommended'].astype(int)
+        # Enhanced rating calculation: Explicit + Implicit feedback
+        logger.info("🎯 Computing enhanced explicit + implicit ratings...")
+        
+        # Step 1: Calculate implicit weights from playtime
+        playtime_col = 'playtime'  # Our data uses 'playtime' column, not 'playtime_forever'
+        if playtime_col in enhanced_df.columns:
+            # Normalize playtime to [0, 1] range per user (Pacula method inspiration)
+            user_max_playtime = enhanced_df.groupby('user_id')[playtime_col].transform('max')
+            user_max_playtime = user_max_playtime.replace(0, 1)  # Avoid division by zero
+            
+            # Calculate implicit preference (0-1 scale)
+            implicit_preference = enhanced_df[playtime_col] / user_max_playtime
+            
+            # Cap at 1.0 and add small boost for any playtime
+            implicit_preference = np.minimum(implicit_preference, 1.0)
+            implicit_preference = np.where(enhanced_df[playtime_col] > 0, 
+                                         np.maximum(implicit_preference, 0.1), 
+                                         implicit_preference)
+            
+            logger.info(f"   📊 Implicit preference range: {implicit_preference.min():.3f} - {implicit_preference.max():.3f}")
+            logger.info(f"   📈 Mean implicit preference: {implicit_preference.mean():.3f}")
+            logger.info(f"   🎮 Playtime data found: {(enhanced_df[playtime_col] > 0).sum():,} interactions with playtime")
+        else:
+            logger.warning("   ⚠️  No playtime data found, using pure explicit ratings")
+            implicit_preference = np.ones(len(enhanced_df))
+        
+        # Step 2: Combine explicit + implicit
+        explicit_rating = enhanced_df['is_recommended'].astype(float)
+        
+        # Enhanced rating formula (configurable):
+        # - Positive + High playtime = 1.0
+        # - Positive + Low playtime = min_positive_rating + implicit_weight * implicit_preference  
+        # - Negative + Any playtime = 0.0 (explicit preference dominates)
+        if self.use_implicit_feedback:
+            enhanced_df['base_rating'] = np.where(
+                explicit_rating == 1.0,
+                self.min_positive_rating + self.implicit_weight * implicit_preference,  # Boost positive ratings by engagement
+                0.0  # Negative ratings stay negative regardless of playtime
+            )
+        else:
+            # Pure explicit ratings if implicit feedback disabled
+            enhanced_df['base_rating'] = explicit_rating
+        
+        # Store implicit data for analysis
+        enhanced_df['implicit_preference'] = implicit_preference
+        
+        # Log rating statistics
+        positive_ratings = enhanced_df[enhanced_df['base_rating'] > 0]['base_rating']
+        logger.info(f"   ✨ Enhanced rating stats:")
+        logger.info(f"      Positive ratings: {len(positive_ratings):,} (mean: {positive_ratings.mean():.3f})")
+        logger.info(f"      Rating range: {enhanced_df['base_rating'].min():.3f} - {enhanced_df['base_rating'].max():.3f}")
+        logger.info(f"      High engagement (>0.9): {(enhanced_df['base_rating'] > 0.9).sum():,}")
+        logger.info(f"      Low engagement (0.7-0.8): {((enhanced_df['base_rating'] >= 0.7) & (enhanced_df['base_rating'] <= 0.8)).sum():,}")
         
         logger.info(f"📊 Processing {len(enhanced_df)} interactions...")
         
@@ -652,7 +713,7 @@ if __name__ == "__main__":
         # Load data
         logger.info("🔄 Loading Steam dataset...")
         loader = SteamDataLoaderV2()
-        games_df, recommendations_df, games_metadata, users_df = loader.load_all_data(sample_recommendations=1000)
+        games_df, recommendations_df, games_metadata, users_df = loader.load_all_data()
         
         # Train enhanced KNN model
         logger.info("🚀 Training Enhanced KNN Model...")

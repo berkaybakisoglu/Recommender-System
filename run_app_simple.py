@@ -47,8 +47,15 @@ def main():
         return
     
     print("\n🚀 Starting the recommendation system...")
-    print("📝 Note: This version uses simple algorithms without scikit-surprise")
-    print("🌐 The app will open in your browser automatically")
+    print("📝 Note: This version uses enhanced algorithms with intelligent caching")
+    print("💾 Cache: Data and models are cached for faster subsequent loads")
+    print("\n⚙️ Performance Modes Available (with quality filtering):")
+    print("   🏃 Fast: 2K quality games, ~30 seconds (demos)")
+    print("   ⚖️ Balanced: 5K quality games, ~1-2 minutes (recommended)")  
+    print("   🎯 Comprehensive: 15K quality games, ~5 minutes (high quality)")
+    print("   🔥 Full: All quality games, ~10 minutes (maximum quality)")
+    print("\n🔍 Quality Filtering: Only games with ≥30 interactions & ≥10 actual players")
+    print("\n🌐 The app will open in your browser automatically")
     print("⏹️  Press Ctrl+C to stop the app")
     print("-" * 50)
     

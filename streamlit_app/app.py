@@ -156,13 +156,11 @@ st.markdown("""
 
 
 @st.cache_resource
-def initialize_recommendation_service(performance_mode: str = "balanced"):
+def initialize_recommendation_service():
     """Initialize the recommendation service with caching."""
-    with st.spinner(f"🚀 Loading Steam dataset in {performance_mode} mode..."):
-        # Use configurable performance mode
-        service = CurrentRecommendationService(
-            performance_mode=performance_mode
-        )
+    with st.spinner("🚀 Loading Steam dataset with intelligent preprocessing..."):
+        # Use simplified intelligent preprocessing
+        service = CurrentRecommendationService()
         return service
 
 
@@ -270,41 +268,23 @@ def display_recommendations(recommendations: List[Dict]):
 def main():
     """Main Streamlit application."""
     
-    # Performance mode selector at the top
+    # Simplified configuration
     st.sidebar.title("⚙️ System Configuration")
-    
-    performance_mode = st.sidebar.selectbox(
-        "🚀 Performance Mode",
-        options=['fast', 'balanced', 'comprehensive', 'full'],
-        index=0,  # Default to 'fast' for quick demos
-        help="""
-        **Performance Modes (with intelligent filtering):**
-        - **Fast**: 2K quality games, ~30 seconds, great for demos
-        - **Balanced**: 5K quality games, ~1-2 mins, recommended  
-        - **Comprehensive**: 15K quality games, ~5 mins, high quality
-        - **Full**: All quality games, ~10 mins, maximum quality
-        
-        **Quality Filtering**: Keeps only games with ≥30 interactions and ≥10 actual players
-        """
-    )
-    
-    # Show current configuration info
-    if performance_mode == 'fast':
-        st.sidebar.info("🏃 Fast: Quick demo mode")
-    elif performance_mode == 'balanced':
-        st.sidebar.info("⚖️ Balanced: Recommended for most users")
-    elif performance_mode == 'comprehensive':
-        st.sidebar.info("🎯 Comprehensive: High quality recommendations")
-    elif performance_mode == 'full':
-        st.sidebar.error("🔥 Full: Maximum quality, requires patience!")
-        st.sidebar.warning("⚠️ This mode requires significant time and memory!")
+    st.sidebar.info("🎯 Using intelligent preprocessing for optimal performance")
+    st.sidebar.markdown("""
+    **Smart Data Processing:**
+    - Reduces 41M interactions to 2.3M (17x smaller)
+    - Focuses on active users & popular games
+    - Maintains high data quality
+    - Fast loading (~30 seconds)
+    """)
     
     # Header
     st.markdown('<h1 class="main-header">🎮 Steam Game Recommender</h1>', unsafe_allow_html=True)
     
-    # Initialize service with selected performance mode
+    # Initialize service
     try:
-        service = initialize_recommendation_service(performance_mode)
+        service = initialize_recommendation_service()
     except Exception as e:
         st.error(f"Error initializing recommendation system: {str(e)}")
         st.stop()

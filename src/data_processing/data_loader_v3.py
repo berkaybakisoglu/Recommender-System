@@ -1,6 +1,6 @@
 """
-Enhanced data loading and preprocessing utilities for real Steam recommendation system.
-Optimized for intelligent data reduction instead of random sampling.
+Intelligent data loading and preprocessing for Steam recommendation system.
+Focuses on smart data reduction instead of random sampling.
 """
 
 import pandas as pd
@@ -9,8 +9,6 @@ import numpy as np
 from typing import Dict, List, Tuple, Optional
 import logging
 import os
-from multiprocessing import Pool, cpu_count
-from functools import partial
 import time
 import pickle
 import hashlib
@@ -20,26 +18,24 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class SteamDataLoaderV2:
+class SteamDataLoaderV3:
     """
-    Enhanced data loader for Steam dataset with intelligent preprocessing.
-    Reduces data size through meaningful filtering instead of random sampling.
+    Smart data loader that reduces 41M interactions through intelligent preprocessing
+    instead of random sampling. Maintains data quality while making models feasible.
     """
     
-    def __init__(self, data_dir: str = "data/", cache_dir: str = "cache/", n_processes: Optional[int] = None, use_cache: bool = True):
+    def __init__(self, data_dir: str = "data/", cache_dir: str = "cache/", use_cache: bool = True):
         """
-        Initialize data loader with intelligent preprocessing.
+        Initialize intelligent data loader.
         
         Args:
             data_dir: Path to directory containing data files
             cache_dir: Path to directory for caching processed data
-            n_processes: Number of processes for parallel loading (default: CPU count - 1)
             use_cache: Whether to use caching for faster subsequent loads
         """
         self.data_dir = data_dir
         self.cache_dir = cache_dir
         self.use_cache = use_cache
-        self.n_processes = n_processes or max(1, cpu_count() - 1)
         self.games_df = None
         self.recommendations_df = None
         self.users_df = None
@@ -48,10 +44,8 @@ class SteamDataLoaderV2:
         # Create cache directory if it doesn't exist
         os.makedirs(cache_dir, exist_ok=True)
         
-        logger.info(f"🚀 Initialized SteamDataLoaderV2 with {self.n_processes} processes")
-        logger.info(f"🎯 Using intelligent preprocessing instead of random sampling")
-        if use_cache:
-            logger.info(f"💾 Cache enabled: {cache_dir}")
+        logger.info("🚀 Initialized SteamDataLoaderV3 with intelligent preprocessing")
+        logger.info("🎯 Strategy: Quality-based filtering instead of random sampling")
         
     def _get_cache_key(self, min_user_reviews: int = 10, min_game_reviews: int = 50, max_users: int = 50000) -> str:
         """Generate cache key based on preprocessing parameters."""
@@ -168,7 +162,7 @@ class SteamDataLoaderV2:
         except Exception as e:
             logger.warning(f"⚠️ Failed to load cache: {e}")
             return False
-    
+
     def preprocess_recommendations_intelligently(self, 
                                                min_user_reviews: int = 10,
                                                min_game_reviews: int = 50,
@@ -178,8 +172,8 @@ class SteamDataLoaderV2:
         Intelligently preprocess recommendations.csv to reduce data size while maintaining quality.
         
         Strategy:
-        1. Filter out games with very few reviews (likely outliers)
-        2. Focus on active users (users with multiple reviews)
+        1. Filter out games with very few reviews (likely outliers/unpopular)
+        2. Focus on active users (users with multiple meaningful reviews)
         3. Remove very short gameplay sessions (likely not meaningful)
         4. Select top active users to control dataset size
         
@@ -188,17 +182,20 @@ class SteamDataLoaderV2:
             min_game_reviews: Minimum number of reviews per game to include  
             max_users: Maximum number of users to include (most active ones)
             min_hours_threshold: Minimum hours played to consider interaction meaningful
-        
+            
         Returns:
             Preprocessed recommendations DataFrame
         """
-        logger.info("🎯 Starting intelligent preprocessing of recommendations...")
-            start_time = time.time()
-            
-        # Load recommendations in chunks to manage memory
-        logger.info("📥 Loading recommendations data...")
+        logger.info("🎯 Starting intelligent preprocessing of 41M+ recommendations...")
+        logger.info(f"Parameters: min_user_reviews={min_user_reviews}, min_game_reviews={min_game_reviews}")
+        logger.info(f"            max_users={max_users:,}, min_hours={min_hours_threshold}")
+        start_time = time.time()
+        
+        # Load recommendations in chunks to manage memory efficiently
+        logger.info("📥 Loading recommendations data in chunks...")
         chunk_size = 1000000  # 1M rows at a time
         processed_chunks = []
+        total_rows_processed = 0
         
         for chunk_num, chunk in enumerate(pd.read_csv(f"{self.data_dir}recommendations.csv", chunksize=chunk_size)):
             logger.info(f"Processing chunk {chunk_num + 1} ({len(chunk):,} rows)")
@@ -206,18 +203,25 @@ class SteamDataLoaderV2:
             # Basic filtering on the chunk
             chunk_filtered = chunk[
                 (chunk['hours'] >= min_hours_threshold) &  # Meaningful playtime
-                (chunk['is_recommended'].notna())  # Valid recommendations
+                (chunk['is_recommended'].notna()) &  # Valid recommendations
+                (chunk['user_id'].notna()) &  # Valid user IDs
+                (chunk['app_id'].notna())  # Valid game IDs
             ].copy()
             
+            total_rows_processed += len(chunk)
             if len(chunk_filtered) > 0:
                 processed_chunks.append(chunk_filtered)
+                
+            # Progress update every 10 chunks
+            if (chunk_num + 1) % 10 == 0:
+                logger.info(f"Progress: {total_rows_processed:,} rows processed")
         
         # Combine all chunks
         logger.info("🔗 Combining processed chunks...")
         all_recommendations = pd.concat(processed_chunks, ignore_index=True)
         logger.info(f"Combined data: {len(all_recommendations):,} interactions after basic filtering")
         
-        # Step 1: Filter games by review count
+        # Step 1: Filter games by review count (remove unpopular games)
         logger.info("🎮 Filtering games by review count...")
         game_review_counts = all_recommendations['app_id'].value_counts()
         popular_games = game_review_counts[game_review_counts >= min_game_reviews].index
@@ -225,7 +229,7 @@ class SteamDataLoaderV2:
         logger.info(f"Kept {len(popular_games):,} games with ≥{min_game_reviews} reviews")
         logger.info(f"Remaining interactions: {len(all_recommendations):,}")
         
-        # Step 2: Filter users by review count
+        # Step 2: Filter users by review count (focus on active users)
         logger.info("👤 Filtering users by review count...")
         user_review_counts = all_recommendations['user_id'].value_counts()
         active_users = user_review_counts[user_review_counts >= min_user_reviews].index
@@ -240,17 +244,30 @@ class SteamDataLoaderV2:
             all_recommendations = all_recommendations[all_recommendations['user_id'].isin(top_users)]
             logger.info(f"Final interactions: {len(all_recommendations):,}")
         
+        # Step 4: Additional quality improvements
+        logger.info("✨ Applying final quality improvements...")
+        
+        # Remove duplicate user-game interactions (keep the most recent one)
+        all_recommendations['date'] = pd.to_datetime(all_recommendations['date'])
+        all_recommendations = all_recommendations.sort_values('date').drop_duplicates(
+            subset=['user_id', 'app_id'], keep='last'
+        )
+        
         # Log final statistics
         final_users = all_recommendations['user_id'].nunique()
         final_games = all_recommendations['app_id'].nunique()
         rec_rate = all_recommendations['is_recommended'].mean()
         avg_hours = all_recommendations['hours'].mean()
+        median_hours = all_recommendations['hours'].median()
         
         processing_time = time.time() - start_time
+        reduction_factor = total_rows_processed / len(all_recommendations)
+        
         logger.info(f"✅ Intelligent preprocessing completed in {processing_time:.2f}s")
-        logger.info(f"📊 Final dataset: {len(all_recommendations):,} interactions")
+        logger.info(f"📊 Data reduction: {total_rows_processed:,} → {len(all_recommendations):,} ({reduction_factor:.1f}x smaller)")
         logger.info(f"👥 Users: {final_users:,}, 🎮 Games: {final_games:,}")
-        logger.info(f"📈 Recommendation rate: {rec_rate:.1%}, ⏱️ Avg hours: {avg_hours:.1f}")
+        logger.info(f"📈 Recommendation rate: {rec_rate:.1%}")
+        logger.info(f"⏱️ Hours played - mean: {avg_hours:.1f}, median: {median_hours:.1f}")
         
         return all_recommendations
 
@@ -276,7 +293,7 @@ class SteamDataLoaderV2:
         except Exception as e:
             logger.error(f"❌ Error loading games data: {e}")
             raise
-    
+
     def load_games_metadata(self, filter_game_ids: Optional[List[int]] = None) -> Dict:
         """Load games metadata from JSON file."""
         try:
@@ -306,7 +323,7 @@ class SteamDataLoaderV2:
         except Exception as e:
             logger.error(f"❌ Error loading metadata: {e}")
             raise
-    
+
     def load_all_data(self, 
                      min_user_reviews: int = 10,
                      min_game_reviews: int = 50, 
@@ -316,11 +333,11 @@ class SteamDataLoaderV2:
         Load all data with intelligent preprocessing.
         
         Args:
-            min_user_reviews: Minimum reviews per user
-            min_game_reviews: Minimum reviews per game
-            max_users: Maximum number of users to include
-            min_hours_threshold: Minimum meaningful playtime
-        
+            min_user_reviews: Minimum reviews per user (default: 10)
+            min_game_reviews: Minimum reviews per game (default: 50)  
+            max_users: Maximum number of users to include (default: 50,000)
+            min_hours_threshold: Minimum meaningful playtime (default: 1.0)
+            
         Returns:
             Tuple of (games_df, recommendations_df, games_metadata, users_df)
         """
@@ -345,7 +362,7 @@ class SteamDataLoaderV2:
         relevant_game_ids = self.recommendations_df['app_id'].unique().tolist()
         self.games_df = self.games_df[self.games_df['app_id'].isin(relevant_game_ids)]
         logger.info(f"Filtered games to {len(self.games_df):,} relevant games")
-            
+        
         # Step 3: Load metadata for relevant games only
         self.load_games_metadata(filter_game_ids=relevant_game_ids)
         
@@ -380,14 +397,14 @@ class SteamDataLoaderV2:
             df['title'] = df['title'].fillna('Unknown Game')
         
         # Clean numeric columns
-        numeric_columns = ['rating', 'positive_ratio', 'user_reviews', 'price_final', 'hours']
+        numeric_columns = ['rating', 'positive_ratio', 'user_reviews', 'price_final']
         for col in numeric_columns:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
         
         logger.info(f"Games cleaned: {initial_count:,} → {len(df):,}")
         return df
-    
+
     def _create_users_from_recommendations(self) -> pd.DataFrame:
         """Create users dataframe from recommendations data."""
         logger.info("👥 Creating users dataframe from recommendations...")
@@ -405,10 +422,10 @@ class SteamDataLoaderV2:
         
         logger.info(f"Created users dataframe with {len(user_stats):,} users")
         return user_stats
-    
+
     def _log_dataset_stats(self):
         """Log comprehensive dataset statistics."""
-        logger.info("📊 Dataset Statistics:")
+        logger.info("📊 Final Dataset Statistics:")
         logger.info(f"  🎮 Games: {len(self.games_df):,}")
         logger.info(f"  👥 Users: {len(self.users_df):,}")
         logger.info(f"  📝 Interactions: {len(self.recommendations_df):,}")
@@ -422,7 +439,7 @@ class SteamDataLoaderV2:
             logger.info(f"  📈 Recommendation rate: {rec_rate:.1%}")
             logger.info(f"  ⏱️ Average hours played: {avg_hours:.1f}")
             logger.info(f"  🕳️ Data sparsity: {sparsity:.4f}")
-    
+
     def _calculate_sparsity(self) -> float:
         """Calculate sparsity of the user-item matrix."""
         if self.recommendations_df is None:
@@ -434,7 +451,7 @@ class SteamDataLoaderV2:
         
         sparsity = 1 - (n_interactions / (n_users * n_games))
         return sparsity
-    
+
     def get_data_statistics(self) -> Dict:
         """Get comprehensive data statistics."""
         stats = {
@@ -455,23 +472,4 @@ class SteamDataLoaderV2:
                 }
             })
         
-        return stats
-
-
-if __name__ == "__main__":
-    # Example usage
-    loader = SteamDataLoaderV2()
-    
-    try:
-        # Load full dataset with optimized parallel processing
-        games_df, recommendations_df, games_metadata, users_df = loader.load_all_data()
-        stats = loader.get_data_statistics()
-        logger.info("📊 Final Data Statistics:")
-        for category, data in stats.items():
-            logger.info(f"  {category}: {data}")
-            
-    except FileNotFoundError:
-        logger.info("Real data files not found. Please place your Steam CSV files in the data/ directory.")
-    except Exception as e:
-        logger.error(f"Error loading data: {e}")
-        raise 
+        return stats 

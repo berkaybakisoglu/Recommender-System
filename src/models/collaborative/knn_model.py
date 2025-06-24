@@ -208,11 +208,15 @@ class EnhancedKNNCollaborativeFilter:
         # Start with copy of recommendations
         enhanced_df = recommendations_df.copy()
         
+        # Fix column names for our data structure
+        if 'app_id' in enhanced_df.columns and 'item_id' not in enhanced_df.columns:
+            enhanced_df['item_id'] = enhanced_df['app_id']
+        
         # Enhanced rating calculation: Explicit + Implicit feedback
         logger.info("🎯 Computing enhanced explicit + implicit ratings...")
         
-        # Step 1: Calculate implicit weights from playtime
-        playtime_col = 'playtime'  # Our data uses 'playtime' column, not 'playtime_forever'
+        # Step 1: Calculate implicit weights from playtime (our data uses 'hours')
+        playtime_col = 'hours'  # Our intelligent preprocessing uses 'hours' column
         if playtime_col in enhanced_df.columns:
             # Normalize playtime to [0, 1] range per user (Pacula method inspiration)
             user_max_playtime = enhanced_df.groupby('user_id')[playtime_col].transform('max')
@@ -229,9 +233,9 @@ class EnhancedKNNCollaborativeFilter:
             
             logger.info(f"   📊 Implicit preference range: {implicit_preference.min():.3f} - {implicit_preference.max():.3f}")
             logger.info(f"   📈 Mean implicit preference: {implicit_preference.mean():.3f}")
-            logger.info(f"   🎮 Playtime data found: {(enhanced_df[playtime_col] > 0).sum():,} interactions with playtime")
+            logger.info(f"   🎮 Hours data found: {(enhanced_df[playtime_col] > 0).sum():,} interactions with playtime")
         else:
-            logger.warning("   ⚠️  No playtime data found, using pure explicit ratings")
+            logger.warning("   ⚠️  No hours data found, using pure explicit ratings")
             implicit_preference = np.ones(len(enhanced_df))
         
         # Step 2: Combine explicit + implicit
@@ -267,9 +271,9 @@ class EnhancedKNNCollaborativeFilter:
         # Calculate enhancement weights
         weights_applied = []
         
-        for idx, row in enhanced_df.iterrows():
-            if idx % 10000 == 0:
-                logger.info(f"   Processed {idx:,} / {len(enhanced_df):,} interactions...")
+        for counter, (idx, row) in enumerate(enhanced_df.iterrows()):
+            if counter % 10000 == 0:
+                logger.info(f"   Processed {counter:,} / {len(enhanced_df):,} interactions...")
             
             total_weight = 1.0
             weight_components = {}

@@ -33,7 +33,7 @@ def run_streamlit_app():
         print(f"❌ Error running app: {e}")
 
 def main():
-    print("🎮 Steam Game Recommendation System (Simple Version)")
+    print("🎮 Steam Game Recommendation System")
     print("=" * 50)
     
     # Check if we're in the right directory
@@ -47,14 +47,14 @@ def main():
         return
     
     print("\n🚀 Starting the recommendation system...")
-    print("📝 Note: This version uses enhanced algorithms with intelligent caching")
+    print("📝 Note: Uses intelligent preprocessing for optimal performance")
     print("💾 Cache: Data and models are cached for faster subsequent loads")
-    print("\n⚙️ Performance Modes Available (with quality filtering):")
-    print("   🏃 Fast: 2K quality games, ~30 seconds (demos)")
-    print("   ⚖️ Balanced: 5K quality games, ~1-2 minutes (recommended)")  
-    print("   🎯 Comprehensive: 15K quality games, ~5 minutes (high quality)")
-    print("   🔥 Full: All quality games, ~10 minutes (maximum quality)")
-    print("\n🔍 Quality Filtering: Only games with ≥30 interactions & ≥10 actual players")
+    print("\n🎯 Intelligent Data Processing:")
+    print("   📊 Reduces 41M interactions to 2.3M (17x smaller)")
+    print("   👥 Focuses on 30K active users with meaningful interactions")
+    print("   🎮 Includes 10K popular games with quality reviews")
+    print("   ⏱️ Fast loading: ~20-30 seconds")
+    print("   💾 Memory efficient: ~300MB")
     print("\n🌐 The app will open in your browser automatically")
     print("⏹️  Press Ctrl+C to stop the app")
     print("-" * 50)

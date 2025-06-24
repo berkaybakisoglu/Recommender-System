@@ -326,11 +326,13 @@ class EnhancedTFIDFContentFilter:
             logger.info(f"   ✅ Platform features: {platform_features.shape}")
         
         # 4. Price tier features
-        if self.use_price_features:
-            price_tier_features = self._create_price_tier_features(games_df['price'].values)
+        if self.use_price_features and 'price_original' in games_df.columns:
+            price_tier_features = self._create_price_tier_features(games_df['price_original'].values)
             feature_components.append(price_tier_features)
             self.feature_names.extend([f"price_tier_{i}" for i in range(price_tier_features.shape[1])])
             logger.info(f"   ✅ Price tier features: {price_tier_features.shape}")
+        elif self.use_price_features:
+            logger.warning("   ⚠️  Price column not found, skipping price features")
         
         # 5. Temporal era features
         if self.use_temporal_features and 'date_release' in games_df.columns:

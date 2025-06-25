@@ -115,3 +115,15 @@ Thumbs.db
 *.log 
 /.cursor/
 /.cursor/
+
+# Caches
+cache/
+*.pkl
+*.json
+
+# IDEs
+.project
+.pydevproject
+
+# Other
+.DS_Store

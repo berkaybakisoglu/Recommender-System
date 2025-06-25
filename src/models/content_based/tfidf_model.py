@@ -343,16 +343,32 @@ class EnhancedTFIDFContentFilter:
         
         # 6. Numerical features (scaled)
         logger.info("📊 Processing numerical features...")
-        numerical_cols = ['positive_ratio', 'average_playtime']
-        available_numerical_cols = [col for col in numerical_cols if col in games_df.columns]
-        
+        # Create numerical features from game statistics
+        available_numerical_cols = []
+        if 'positive_ratio' in games_df.columns:
+            available_numerical_cols.append('positive_ratio')
+        if 'user_reviews' in games_df.columns:
+            available_numerical_cols.append('user_reviews')
+        if 'price_final' in games_df.columns:
+            available_numerical_cols.append('price_final')
+            
         if available_numerical_cols:
             numerical_features = games_df[available_numerical_cols].fillna(0).values
-            self.feature_scaler = StandardScaler()
-            numerical_features_scaled = self.feature_scaler.fit_transform(numerical_features)
-            feature_components.append(numerical_features_scaled)
+            # Scale numerical features
+            scaler = StandardScaler()
+            numerical_features = scaler.fit_transform(numerical_features)
+            self.feature_scaler = scaler
+            feature_components.append(numerical_features)
             self.feature_names.extend([f"numerical_{col}" for col in available_numerical_cols])
-            logger.info(f"   ✅ Numerical features: {numerical_features_scaled.shape}")
+            
+            logger.info(f"   ✅ Numerical features: ({numerical_features.shape[0]}, {numerical_features.shape[1]})")
+        else:
+            # No numerical features available
+            numerical_features = np.zeros((len(games_df), 1))
+            self.feature_scaler = None
+            feature_components.append(numerical_features)
+            self.feature_names.append("numerical_placeholder")
+            logger.info(f"   ✅ Numerical features: ({numerical_features.shape[0]}, {numerical_features.shape[1]}) [placeholder]")
         
         # Combine all features
         logger.info("🔗 Combining all feature components...")
@@ -489,7 +505,8 @@ class EnhancedTFIDFContentFilter:
         
         # Get game index and info
         game_index = self.game_id_to_index[game_id]
-        game_name = self.games_df[self.games_df['app_id'] == game_id]['name'].iloc[0]
+        # Use 'title' column (our data has 'title', not 'name')
+        game_name = self.games_df[self.games_df['app_id'] == game_id]['title'].iloc[0]
         
         logger.info(f"   🎮 Target game: {game_name}")
         
@@ -547,8 +564,8 @@ class EnhancedTFIDFContentFilter:
         numerical_feature_count = 0
         if hasattr(self, 'feature_scaler') and self.feature_scaler:
             numerical_feature_count = self.feature_scaler.n_features_in_
-        elif 'positive_ratio' in self.games_df.columns and 'average_playtime' in self.games_df.columns:
-            numerical_feature_count = 2  # positive_ratio + average_playtime
+        elif hasattr(self, 'feature_scaler') and self.feature_scaler:
+            numerical_feature_count = self.feature_scaler.n_features_in_
         
         base_info = {
             "status": "trained",
@@ -682,7 +699,8 @@ if __name__ == "__main__":
     import os
     sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
     
-    from src.data_processing.data_loader_v2 import SteamDataLoaderV2
+    # Use the current, correct data loader
+    from src.data_processing.intelligent_loader import IntelligentSteamLoader
     
     # Configure logging for demo
     logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
@@ -690,8 +708,13 @@ if __name__ == "__main__":
     try:
         # Load data
         logger.info("🔄 Loading Steam dataset...")
-        loader = SteamDataLoaderV2()
-        games_df, recommendations_df, games_metadata, users_df = loader.load_all_data()
+        # Use the correct loader class
+        loader = IntelligentSteamLoader()
+        games_df, recommendations_df, games_metadata, users_df = loader.load_all_data(
+            min_user_reviews=5, 
+            min_game_reviews=10,
+            max_users=10000 # Use a smaller set for the demo
+        )
         
         # Train enhanced content-based model with manageable sample size
         logger.info("🚀 Training Enhanced Content-Based Model...")
@@ -716,12 +739,14 @@ if __name__ == "__main__":
         # Get similar games for a popular game
         if len(enhanced_model.games_df) > 0:
             test_game = enhanced_model.games_df.iloc[0]['app_id']
-            test_game_name = enhanced_model.games_df.iloc[0]['name']
+            # Corrected column from 'name' to 'title'
+            test_game_name = enhanced_model.games_df.iloc[0]['title']
             similar_games = enhanced_model.get_similar_games(game_id=test_game, n_recommendations=5)
             
             logger.info(f"🎯 Top 5 games similar to '{test_game_name}':")
             for i, (game_id, similarity) in enumerate(similar_games, 1):
-                similar_game_name = enhanced_model.games_df[enhanced_model.games_df['app_id'] == game_id]['name'].iloc[0]
+                # Corrected column from 'name' to 'title'
+                similar_game_name = enhanced_model.games_df[enhanced_model.games_df['app_id'] == game_id]['title'].iloc[0]
                 logger.info(f"   {i}. {similar_game_name} (Similarity: {similarity:.3f})")
                 
     except Exception as e:

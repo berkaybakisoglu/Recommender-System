@@ -563,7 +563,7 @@ class EnhancedHybridRecommender:
             (self.recommendations_df['user_id'] == user_id) & 
             (self.recommendations_df['is_recommended'] == True)
         ]
-        return user_data['item_id'].tolist()
+        return user_data['app_id'].tolist()  # Changed from 'item_id' to 'app_id'
     
     def _get_user_played_games(self, user_id: int) -> List[int]:
         """
@@ -582,7 +582,7 @@ class EnhancedHybridRecommender:
             (self.recommendations_df['user_id'] == user_id) & 
             (self.recommendations_df['is_recommended'] == False)
         ]
-        return user_data['item_id'].tolist()
+        return user_data['app_id'].tolist()  # Changed from 'item_id' to 'app_id'
     
     def _generate_explanation(
         self,
@@ -870,7 +870,7 @@ class EnhancedHybridRecommender:
             for game_id in user_liked_games[:3]:  # Show top 3
                 game_info = self.games_df[self.games_df['app_id'] == game_id]
                 if not game_info.empty:
-                    liked_game_names.append(game_info.iloc[0]['name'])
+                    liked_game_names.append(game_info.iloc[0]['title'])
             
             if liked_game_names:
                 if recommendation_source == 'collaborative':
@@ -886,7 +886,7 @@ class EnhancedHybridRecommender:
             for game_id in user_played_games[:2]:  # Show fewer for played games
                 game_info = self.games_df[self.games_df['app_id'] == game_id]
                 if not game_info.empty:
-                    played_game_names.append(game_info.iloc[0]['name'])
+                    played_game_names.append(game_info.iloc[0]['title'])
             
             if played_game_names and not user_liked_games:  # Only if no liked games to avoid redundancy
                 context_parts.append(f" Given your experience with {', '.join(played_game_names)}, this offers a different but related gaming experience.")
@@ -909,7 +909,7 @@ class EnhancedHybridRecommender:
         # Sort games by positive ratio and average playtime
         popular_games = self.games_df.copy()
         
-        # Create popularity score (weighted by positive ratio and playtime)
+        # Create popularity score (weighted by positive ratio and average playtime)
         popular_games['popularity_score'] = (
             popular_games['positive_ratio'] * 0.7 + 
             (popular_games['average_playtime'] / popular_games['average_playtime'].max()) * 0.3
@@ -980,7 +980,7 @@ class EnhancedHybridRecommender:
         
         # Find users who liked this game
         game_users = self.recommendations_df[
-            (self.recommendations_df['item_id'] == game_id) & 
+            (self.recommendations_df['app_id'] == game_id) &  # Changed from 'item_id' to 'app_id'
             (self.recommendations_df['is_recommended'] == True)
         ]['user_id'].tolist()
         
@@ -1130,8 +1130,8 @@ class EnhancedHybridRecommender:
         
         # Filter games by criteria
         value_games = self.games_df[
-            (self.games_df['price'] <= max_price) &
-            (self.games_df['price'] > 0) &  # Exclude free games for value calculation
+            (self.games_df['price_final'] <= max_price) &
+            (self.games_df['price_final'] > 0) &  # Exclude free games for value calculation
             (self.games_df['average_playtime'] >= min_playtime) &
             (self.games_df['positive_ratio'] >= 0.7)  # Good rating threshold
         ].copy()
@@ -1142,13 +1142,13 @@ class EnhancedHybridRecommender:
         
         # Calculate value scores
         if value_metric == 'playtime_per_dollar':
-            value_games['value_score'] = value_games['average_playtime'] / value_games['price']
+            value_games['value_score'] = value_games['average_playtime'] / value_games['price_final']
         elif value_metric == 'rating_per_dollar':
-            value_games['value_score'] = value_games['positive_ratio'] / value_games['price']
+            value_games['value_score'] = value_games['positive_ratio'] / value_games['price_final']
         else:
             # Combined metric
-            playtime_score = value_games['average_playtime'] / value_games['price']
-            rating_score = value_games['positive_ratio'] / value_games['price']
+            playtime_score = value_games['average_playtime'] / value_games['price_final']
+            rating_score = value_games['positive_ratio'] / value_games['price_final']
             value_games['value_score'] = (playtime_score * 0.7) + (rating_score * 0.3)
         
         # Sort by value and get top recommendations
@@ -1160,7 +1160,7 @@ class EnhancedHybridRecommender:
                 'type': 'value_recommendation',
                 'value_metric': value_metric,
                 'value_score': float(game['value_score']),
-                'price': float(game['price']),
+                'price': float(game['price_final']),
                 'playtime': float(game['average_playtime']),
                 'rating': float(game['positive_ratio']),
                 'value_description': self._generate_value_description(game, value_metric)
@@ -1223,10 +1223,10 @@ class EnhancedHybridRecommender:
         ]
         
         if include_free:
-            conditions.append(self.games_df['price'] <= budget)
+            conditions.append(self.games_df['price_final'] <= budget)
         else:
             conditions.append(
-                (self.games_df['price'] <= budget) & (self.games_df['price'] > 0)
+                (self.games_df['price_final'] <= budget) & (self.games_df['price_final'] > 0)
             )
         
         # Combine all conditions
@@ -1302,7 +1302,7 @@ class EnhancedHybridRecommender:
                 'type': 'popular_budget',
                 'primary_reason': 'popular',
                 'rating': float(game['positive_ratio']),
-                'price': float(game['price']),
+                'price': float(game['price_final']),
                 'popularity_reason': 'High rating and user reviews'
             }
             
@@ -1475,7 +1475,7 @@ class EnhancedHybridRecommender:
             if total_cost + game['price'] <= budget:
                 selected_games.append({
                     'game_id': int(game['app_id']),
-                    'name': game['name'],
+                    'name': game['title'],
                     'price': float(game['price']),
                     'rating': float(game['positive_ratio'])
                 })
@@ -1518,7 +1518,7 @@ class EnhancedHybridRecommender:
                 if total_cost + game['price'] <= budget:
                     selected_games.append({
                         'game_id': int(game['app_id']),
-                        'name': game['name'],
+                        'name': game['title'],
                         'price': float(game['price']),
                         'rating': float(game['positive_ratio'])
                     })
@@ -1553,7 +1553,7 @@ class EnhancedHybridRecommender:
             if total_cost + game['price'] <= budget:
                 selected_games.append({
                     'game_id': int(game['app_id']),
-                    'name': game['name'],
+                    'name': game['title'],
                     'price': float(game['price']),
                     'rating': float(game['positive_ratio'])
                 })
@@ -1801,7 +1801,7 @@ if __name__ == "__main__":
     import os
     sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
     
-    from src.data_processing.data_loader_v2 import SteamDataLoaderV2
+    from src.data_processing.intelligent_loader import IntelligentSteamLoader
     
     # Configure logging for demo
     logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
@@ -1809,7 +1809,7 @@ if __name__ == "__main__":
     try:
         # Load data
         logger.info("🔄 Loading Steam dataset...")
-        loader = SteamDataLoaderV2()
+        loader = IntelligentSteamLoader()
         games_df, recommendations_df, games_metadata, users_df = loader.load_all_data()
         
         # Train enhanced hybrid model
@@ -1847,7 +1847,7 @@ if __name__ == "__main__":
                 
                 cold_recommendations = enhanced_hybrid.get_user_recommendations(cold_user, n_recommendations=5)
                 for i, (game_id, score, explanation) in enumerate(cold_recommendations[:3], 1):
-                    game_name = games_df[games_df['app_id'] == game_id]['name'].iloc[0]
+                    game_name = games_df[games_df['app_id'] == game_id]['title'].iloc[0]
                     logger.info(f"   {i}. {game_name} (Score: {score:.3f})")
                     logger.info(f"      Strategy: {explanation.get('strategy', 'N/A')} | CF: {explanation.get('cf_weight', 0):.1%} | CB: {explanation.get('cb_weight', 0):.1%}")
             
@@ -1859,7 +1859,7 @@ if __name__ == "__main__":
                 
                 exp_recommendations = enhanced_hybrid.get_user_recommendations(exp_user, n_recommendations=5)
                 for i, (game_id, score, explanation) in enumerate(exp_recommendations[:3], 1):
-                    game_name = games_df[games_df['app_id'] == game_id]['name'].iloc[0]
+                    game_name = games_df[games_df['app_id'] == game_id]['title'].iloc[0]
                     logger.info(f"   {i}. {game_name} (Score: {score:.3f})")
                     logger.info(f"      Strategy: {explanation.get('strategy', 'N/A')} | CF: {explanation.get('cf_weight', 0):.1%} | CB: {explanation.get('cb_weight', 0):.1%}")
                 

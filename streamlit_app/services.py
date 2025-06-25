@@ -80,6 +80,7 @@ class CurrentRecommendationService(RecommendationService):
         try:
             # Load data using intelligent preprocessing
             logger.info("🚀 Loading Steam dataset with intelligent preprocessing...")
+            # Use default data directory - should work from project root
             loader = IntelligentSteamLoader()
             
             # Use intelligent preprocessing with good defaults
@@ -108,8 +109,7 @@ class CurrentRecommendationService(RecommendationService):
                 users_df=self._users_df,
                 cf_weight=0.6,
                 cb_weight=0.4,
-                combination_strategy='weighted_average',
-                sample_size=2000  # Reasonable sample for content-based model
+                combination_strategy='weighted_average'
             )
             
             self._models_trained = True
@@ -200,8 +200,11 @@ class CurrentRecommendationService(RecommendationService):
             # Get metadata if available
             game_metadata = self._games_metadata.get(str(game_id), {})
             
-            # Calculate additional metrics
+            # Re-define game_interactions to calculate recommendation rate
             game_interactions = self._recommendations_df[self._recommendations_df['app_id'] == game_id]
+            
+            # Use pre-calculated average playtime from games_df for efficiency
+            avg_playtime_hours = game_data.get('average_playtime', 0)
             
             return {
                 'id': game_id,
@@ -211,8 +214,8 @@ class CurrentRecommendationService(RecommendationService):
                 'user_reviews': game_data.get('user_reviews', 0),
                 'description': game_metadata.get('description', 'No description available.'),
                 'tags': game_metadata.get('tags', []),
-                'average_playtime': game_interactions['hours'].mean() if not game_interactions.empty else 0,
-                'total_interactions': len(game_interactions),
+                'average_playtime': avg_playtime_hours * 60, # Convert to minutes for display
+                'total_interactions': int(game_data.get('player_count', 0)),
                 'recommendation_rate': game_interactions['is_recommended'].mean() if not game_interactions.empty else 0
             }
             
@@ -232,7 +235,7 @@ class CurrentRecommendationService(RecommendationService):
         if self._games_df is not None:
             for _, game in self._games_df.iterrows():
                 games.append({
-                    'id': game['app_id'],
+                    'game_id': game['app_id'],
                     'name': game.get('title', 'Unknown Game'),
                     'price': game.get('price_final', 0),
                     'rating': game.get('positive_ratio', 0)
@@ -240,40 +243,49 @@ class CurrentRecommendationService(RecommendationService):
         return games
     
     def get_system_stats(self) -> Dict:
-        """Get simplified system statistics."""
-        if not self._models_trained:
+        """Get system statistics and information from the live models."""
+        if not self._models_trained or not self.hybrid_model:
             return {'status': 'not_initialized'}
         
-        # Calculate sparsity
-        n_users = len(self._users_df)
-        n_games = len(self._games_df)
-        n_interactions = len(self._recommendations_df)
-        sparsity = 1 - (n_interactions / (n_users * n_games))
+        # Get live stats directly from the trained models
+        hybrid_info = self.hybrid_model.get_model_info()
+        cf_info = hybrid_info.get('cf_model', {})
+        cb_info = hybrid_info.get('cb_model', {})
+        
+        n_users = cf_info.get('n_users', len(self._users_df))
+        n_games = cb_info.get('n_games', len(self._games_df))
+        n_interactions = cf_info.get('n_ratings', len(self._recommendations_df))
+        
+        sparsity = cf_info.get('sparsity', 1 - (n_interactions / (n_users * n_games)) if (n_users * n_games) > 0 else 1)
         
         return {
             'status': 'ready',
             'preprocessing': 'intelligent',
-            'data_reduction': '17.8x (41M → 2.3M interactions)',
             'dataset': {
                 'total_games': n_games,
                 'total_users': n_users,
                 'total_interactions': n_interactions,
                 'sparsity': sparsity,
-                'avg_positive_ratio': self._recommendations_df['is_recommended'].mean(),
+                'recommendation_rate': self._recommendations_df['is_recommended'].mean(),
                 'avg_hours': self._recommendations_df['hours'].mean(),
+                'avg_playtime': self._games_df['average_playtime'].mean() * 60, # In minutes
+                'avg_price': self._games_df['price_final'].mean(),
+                'games_with_metadata': len(self._games_metadata),
                 'data_quality': 'high (active users, popular games)',
             },
-            'models': {
-                'hybrid_model': 'Enhanced with Steam features',
-                'cf_component': 'KNN with quality weighting',
-                'cb_component': 'TF-IDF with platform features',
-                'combination': 'Weighted average (60% CF, 40% CB)'
+            'model': {
+                'status': 'trained',
+                'cf_weight': hybrid_info.get('cf_weight', 0),
+                'cb_weight': hybrid_info.get('cb_weight', 0),
+                'dynamic_weighting': hybrid_info.get('dynamic_weighting', False),
+                'hybrid_model': hybrid_info.get('model_type', 'Enhanced Hybrid'),
+                'cf_component': cf_info.get('model_type', 'Enhanced KNN'),
+                'cb_component': cb_info.get('model_type', 'Enhanced TF-IDF'),
+                'combination': hybrid_info.get('combination_strategy', 'weighted_average'),
+                'cf_model': cf_info,
+                'cb_model': cb_info
             },
-            'performance': {
-                'loading_time': '~20-30 seconds',
-                'memory_usage': '~300MB',
-                'recommendation_speed': 'Fast'
-            }
+            'performance': hybrid_info.get('recommendation_stats', {})
         }
     
     def get_user_game_history(self, user_id: int) -> List[Dict]:
@@ -382,14 +394,15 @@ class CurrentRecommendationService(RecommendationService):
             formatted_bundles = []
             for bundle in bundles:
                 formatted_bundle = {
-                    'total_price': bundle['total_price'],
-                    'total_value': bundle.get('total_value', 0),
-                    'bundle_type': bundle.get('bundle_type', 'mixed'),
+                    'total_cost': bundle['total_cost'],
+                    'savings': bundle.get('savings', 0),
+                    'description': bundle.get('description', ''),
+                    'type': bundle.get('type', 'mixed'),
                     'games': []
                 }
                 
-                for game_id in bundle['games']:
-                    game_info = self.get_game_info(game_id)
+                for game_dict in bundle['games']:
+                    game_info = self.get_game_info(game_dict['game_id'])
                     if game_info:
                         formatted_bundle['games'].append(game_info)
                 

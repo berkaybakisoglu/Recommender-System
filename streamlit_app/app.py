@@ -229,7 +229,7 @@ def display_recommendations(recommendations: List[Dict]):
                 # Match score with visual progress
                 st.markdown('<div class="recommendation-score">', unsafe_allow_html=True)
                 st.markdown("**🎯 Match Score**")
-                score = rec['score']
+                score = rec['recommendation_score']
                 score_percent = min(score * 100, 100)  # Convert to percentage
                 st.markdown(f'<div class="rating-bar"><div class="rating-fill" style="width: {score_percent}%"></div></div>', unsafe_allow_html=True)
                 st.markdown(f"<center>{score:.3f}</center>", unsafe_allow_html=True)
@@ -398,7 +398,7 @@ def show_home_page(service):
         """, unsafe_allow_html=True)
     
     with col4:
-        avg_rating = dataset_stats['avg_positive_ratio']
+        avg_rating = dataset_stats['recommendation_rate']
         st.markdown(f"""
         <div class="stat-card">
             <div class="stat-number">{avg_rating:.1%}</div>
@@ -629,7 +629,7 @@ def display_enhanced_recommendations(recommendations: List[Dict]):
                 # Match score with visual progress
                 st.markdown('<div class="recommendation-score">', unsafe_allow_html=True)
                 st.markdown("**🎯 Match Score**")
-                score = rec['score']
+                score = rec['recommendation_score']
                 score_percent = min(score * 100, 100)  # Convert to percentage
                 st.markdown(f'<div class="rating-bar"><div class="rating-fill" style="width: {score_percent}%"></div></div>', unsafe_allow_html=True)
                 st.markdown(f"<center>{score:.3f}</center>", unsafe_allow_html=True)
@@ -926,13 +926,13 @@ def display_similar_games_enhanced(selected_game, similar_games, method):
             
             # Detailed explanation in expandable section
             with st.expander(f"🔍 Why {game['name']} is similar"):
-                show_detailed_similarity_explanation(selected_game, game, method)
+                show_detailed_similarity_explanation(selected_game, game, method, similar_games)
             
             st.markdown('</div>', unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
 
 
-def show_detailed_similarity_explanation(selected_game, similar_game, method):
+def show_detailed_similarity_explanation(selected_game, similar_game, method, similar_games_list):
     """Show detailed explanation of why games are similar."""
     
     if method == "content_based":
@@ -985,7 +985,7 @@ def show_detailed_similarity_explanation(selected_game, similar_game, method):
             st.write("**📋 Content Aspects:**")
             selected_tags = set(selected_game.get('tags', []))
             all_similar_tags = []
-            for game in similar_games:
+            for game in similar_games_list:
                 all_similar_tags.extend(game.get('tags', []))
             
             from collections import Counter
@@ -1003,7 +1003,7 @@ def show_detailed_similarity_explanation(selected_game, similar_game, method):
             st.write("• Similar rating patterns")
             st.write("• Comparable engagement")
         
-        avg_sim = sum(g['similarity_score'] for g in similar_games) / len(similar_games)
+        avg_sim = sum(g['similarity_score'] for g in similar_games_list) / len(similar_games_list)
         st.write(f"**⚖️ Combined Score:** {avg_sim:.3f}")
         st.write("*This recommendation balances content similarity (40%) with user behavior patterns (60%)*")
 
@@ -1086,7 +1086,7 @@ def show_system_info_page(service):
     with col1:
         st.markdown("**Games Dataset:**")
         st.write(f"• Total games: {dataset_stats['total_games']}")
-        st.write(f"• Avg. positive ratio: {dataset_stats['avg_positive_ratio']:.1%}")
+        st.write(f"• Avg. positive ratio: {dataset_stats['recommendation_rate']:.1%}")
         st.write(f"• Avg. price: ${dataset_stats['avg_price']:.2f}")
         st.write(f"• Avg. playtime: {dataset_stats['avg_playtime']:.0f} min")
     
@@ -1381,7 +1381,7 @@ def display_budget_recommendations(recommendations: List[Dict], budget: float, s
             col1, col2, col3 = st.columns([3, 1.5, 1.5])
             
             with col1:
-                rank_emoji = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"][i] if i < 5 else f"{i+1}."
+                rank_emoji = ["🥇", "��", "🥉", "4️⃣", "5️⃣"][i] if i < 5 else f"{i+1}."
                 st.markdown(f"### {rank_emoji} {rec['name']}")
                 
                 description = rec.get('description', 'No description available.')
@@ -1409,7 +1409,7 @@ def display_budget_recommendations(recommendations: List[Dict], budget: float, s
             
             with col3:
                 st.markdown("**🎯 Match Score**")
-                score = rec['score']
+                score = rec['recommendation_score']
                 st.markdown(f'<div class="recommendation-score">{score:.3f}</div>', unsafe_allow_html=True)
                 
                 explanation = rec['explanation']
@@ -1497,7 +1497,7 @@ def display_value_recommendations(recommendations: List[Dict], metric: str):
             
             with col3:
                 st.markdown("**💎 Value Score**")
-                value_score = rec['value_score']
+                value_score = rec['recommendation_score']
                 st.markdown(f'<div class="recommendation-score">{value_score:.2f}</div>', unsafe_allow_html=True)
                 
                 if metric == 'playtime_per_dollar':
@@ -1526,7 +1526,7 @@ def display_game_bundles(bundles: List[Dict], budget: float):
             with col1:
                 st.metric("💰 Total Cost", f"${bundle['total_cost']:.2f}")
             with col2:
-                st.metric("💵 Savings", f"${bundle['savings']:.2f}")
+                st.metric("💵 Savings", f"${bundle.get('savings', 0):.2f}")
             with col3:
                 st.metric("🎮 Games", len(bundle['games']))
             
@@ -1551,7 +1551,7 @@ def display_game_bundles(bundles: List[Dict], budget: float):
                             st.markdown(f"💵 ${price:.2f}")
                     
                     with col3:
-                        st.markdown(f"⭐ {game['rating']:.1%}")
+                        st.markdown(f"⭐ {game['positive_ratio']:.1%}")
                     
                     st.markdown("---")
 

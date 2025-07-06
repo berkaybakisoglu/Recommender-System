@@ -18,7 +18,7 @@ class EnhancedKNNCollaborativeFilter:
     """
     Enhanced K-Nearest Neighbors Collaborative Filtering with Steam-specific features.
     
-    New Features:
+    Features:
     - Review quality weighting (helpful/funny votes)
     - Temporal decay (newer reviews weighted higher)
     - User authority based on review count
@@ -37,26 +37,13 @@ class EnhancedKNNCollaborativeFilter:
         implicit_weight: float = 0.3,
         min_positive_rating: float = 0.7
     ):
-        """
-        Initialize enhanced KNN collaborative filtering model.
-        
-        Args:
-            k: Number of neighbors to consider
-            sim_options: Similarity computation options
-            use_review_quality: Whether to weight by review helpfulness
-            use_temporal_decay: Whether to apply temporal decay to older reviews
-            use_user_authority: Whether to weight by user's review count
-            temporal_decay_days: Days for temporal decay to reduce weight by half
-        """
         self.k = k
-        # Use Pearson correlation for sparse data (more robust than cosine)
         self.sim_options = sim_options or {
-            'name': 'pearson',  # Changed from cosine to pearson for sparse data
+            'name': 'pearson',
             'user_based': True,
-            'min_support': 2  # Minimum number of common items for similarity calculation
+            'min_support': 2
         }
         
-        # Enhanced features
         self.use_review_quality = use_review_quality
         self.use_temporal_decay = use_temporal_decay
         self.use_user_authority = use_user_authority
@@ -65,7 +52,6 @@ class EnhancedKNNCollaborativeFilter:
         self.implicit_weight = implicit_weight
         self.min_positive_rating = min_positive_rating
         
-        # Model components
         self.model = None
         self.trainset = None
         self.games_df = None
@@ -87,98 +73,63 @@ class EnhancedKNNCollaborativeFilter:
         logger.info(f"   🤝 Minimum support: {self.sim_options.get('min_support', 'N/A')}")
     
     def _calculate_review_quality_weight(self, helpful: int, funny: int) -> float:
-        """
-        Calculate weight based on review quality metrics.
-        
-        Args:
-            helpful: Number of helpful votes
-            funny: Number of funny votes
-            
-        Returns:
-            Quality weight multiplier (0.5 to 2.0)
-        """
         if not self.use_review_quality:
             return 1.0
         
-        # Combine helpful and funny votes (helpful weighted more)
         quality_score = helpful * 2 + funny
         
-        # Apply logarithmic scaling to prevent extreme weights
         if quality_score <= 0:
-            weight = 0.8  # Slightly lower for reviews with no positive feedback
+            weight = 0.8
         elif quality_score <= 2:
-            weight = 1.0  # Normal weight
+            weight = 1.0
         elif quality_score <= 10:
-            weight = 1.2  # Slight boost for moderately helpful reviews
+            weight = 1.2
         elif quality_score <= 50:
-            weight = 1.5  # Good boost for helpful reviews
+            weight = 1.5
         else:
-            weight = 2.0  # Maximum boost for very helpful reviews
+            weight = 2.0
         
         logger.debug(f"Quality score {quality_score} -> weight {weight:.2f}")
         return weight
     
     def _calculate_temporal_weight(self, review_date: pd.Timestamp) -> float:
-        """
-        Calculate weight based on review recency.
-        
-        Args:
-            review_date: Date of the review
-            
-        Returns:
-            Temporal weight multiplier (0.1 to 1.0)
-        """
         if not self.use_temporal_decay or pd.isna(review_date):
             return 1.0
         
-        # Calculate days since review
         current_date = datetime.now()
         if isinstance(review_date, str):
             review_date = pd.to_datetime(review_date)
         
         days_old = (current_date - review_date).days
         
-        # Apply exponential decay: weight = exp(-days / decay_period)
         decay_factor = days_old / self.temporal_decay_days
         weight = np.exp(-decay_factor)
         
-        # Ensure minimum weight of 0.1
         weight = max(0.1, weight)
         
         logger.debug(f"Review age {days_old} days -> weight {weight:.2f}")
         return weight
     
     def _calculate_user_authority_weight(self, user_id: int) -> float:
-        """
-        Calculate weight based on user's review authority.
-        
-        Args:
-            user_id: User identifier
-            
-        Returns:
-            Authority weight multiplier (0.5 to 1.5)
-        """
         if not self.use_user_authority or self.users_df is None:
             return 1.0
         
-        # Get user's total review count
         user_data = self.users_df[self.users_df['user_id'] == user_id]
         if len(user_data) == 0:
-            return 0.8  # Slightly lower for unknown users
+            return 0.8
         
         review_count = user_data.iloc[0]['total_reviews']
         
-        # Apply logarithmic scaling for authority
         if review_count <= 1:
-            weight = 0.7  # Low authority for users with very few reviews
+            weight = 0.7
         elif review_count <= 5:
-            weight = 0.9  # Slightly lower for new reviewers
+            weight = 0.9
         elif review_count <= 20:
-            weight = 1.0  # Normal weight
+            weight = 1.0
         elif review_count <= 100:
-            weight = 1.2  # Boost for experienced reviewers
+            weight = 1.2
         else:
-            weight = 1.5  # Maximum boost for power reviewers
+            weight = 1.5
         
         logger.debug(f"User {user_id} with {review_count} reviews -> weight {weight:.2f}")
         return weight
@@ -189,43 +140,25 @@ class EnhancedKNNCollaborativeFilter:
         games_df: pd.DataFrame,
         users_df: Optional[pd.DataFrame] = None
     ) -> Dataset:
-        """
-        Prepare enhanced data with Steam-specific features.
-        
-        Args:
-            recommendations_df: User-item interaction data with Steam features
-            games_df: Game metadata
-            users_df: User profile data (optional)
-            
-        Returns:
-            Surprise Dataset object with enhanced ratings
-        """
         logger.info("🔄 Preparing enhanced recommendation data...")
         
         self.games_df = games_df
         self.users_df = users_df
         
-        # Start with copy of recommendations
         enhanced_df = recommendations_df.copy()
         
-        # Fix column names for our data structure
         if 'app_id' in enhanced_df.columns and 'item_id' not in enhanced_df.columns:
             enhanced_df['item_id'] = enhanced_df['app_id']
         
-        # Enhanced rating calculation: Explicit + Implicit feedback
         logger.info("🎯 Computing enhanced explicit + implicit ratings...")
         
-        # Step 1: Calculate implicit weights from playtime (our data uses 'hours')
-        playtime_col = 'hours'  # Our intelligent preprocessing uses 'hours' column
+        playtime_col = 'hours'
         if playtime_col in enhanced_df.columns:
-            # Normalize playtime to [0, 1] range per user (Pacula method inspiration)
             user_max_playtime = enhanced_df.groupby('user_id')[playtime_col].transform('max')
-            user_max_playtime = user_max_playtime.replace(0, 1)  # Avoid division by zero
+            user_max_playtime = user_max_playtime.replace(0, 1)
             
-            # Calculate implicit preference (0-1 scale)
             implicit_preference = enhanced_df[playtime_col] / user_max_playtime
             
-            # Cap at 1.0 and add small boost for any playtime
             implicit_preference = np.minimum(implicit_preference, 1.0)
             implicit_preference = np.where(enhanced_df[playtime_col] > 0, 
                                          np.maximum(implicit_preference, 0.1), 
@@ -238,27 +171,19 @@ class EnhancedKNNCollaborativeFilter:
             logger.warning("   ⚠️  No hours data found, using pure explicit ratings")
             implicit_preference = np.ones(len(enhanced_df))
         
-        # Step 2: Combine explicit + implicit
         explicit_rating = enhanced_df['is_recommended'].astype(float)
         
-        # Enhanced rating formula (configurable):
-        # - Positive + High playtime = 1.0
-        # - Positive + Low playtime = min_positive_rating + implicit_weight * implicit_preference  
-        # - Negative + Any playtime = 0.0 (explicit preference dominates)
         if self.use_implicit_feedback:
             enhanced_df['base_rating'] = np.where(
                 explicit_rating == 1.0,
-                self.min_positive_rating + self.implicit_weight * implicit_preference,  # Boost positive ratings by engagement
-                0.0  # Negative ratings stay negative regardless of playtime
+                self.min_positive_rating + self.implicit_weight * implicit_preference,
+                0.0
             )
         else:
-            # Pure explicit ratings if implicit feedback disabled
             enhanced_df['base_rating'] = explicit_rating
         
-        # Store implicit data for analysis
         enhanced_df['implicit_preference'] = implicit_preference
         
-        # Log rating statistics
         positive_ratings = enhanced_df[enhanced_df['base_rating'] > 0]['base_rating']
         logger.info(f"   ✨ Enhanced rating stats:")
         logger.info(f"      Positive ratings: {len(positive_ratings):,} (mean: {positive_ratings.mean():.3f})")
@@ -268,7 +193,6 @@ class EnhancedKNNCollaborativeFilter:
         
         logger.info(f"📊 Processing {len(enhanced_df)} interactions...")
         
-        # Calculate enhancement weights
         weights_applied = []
         
         for counter, (idx, row) in enumerate(enhanced_df.iterrows()):
@@ -278,7 +202,6 @@ class EnhancedKNNCollaborativeFilter:
             total_weight = 1.0
             weight_components = {}
             
-            # Review quality weight
             if 'helpful' in row and 'funny' in row:
                 quality_weight = self._calculate_review_quality_weight(
                     row.get('helpful', 0), 
@@ -287,13 +210,11 @@ class EnhancedKNNCollaborativeFilter:
                 total_weight *= quality_weight
                 weight_components['quality'] = quality_weight
             
-            # Temporal weight
             if 'date' in row:
                 temporal_weight = self._calculate_temporal_weight(row['date'])
                 total_weight *= temporal_weight
                 weight_components['temporal'] = temporal_weight
             
-            # User authority weight
             authority_weight = self._calculate_user_authority_weight(row['user_id'])
             total_weight *= authority_weight
             weight_components['authority'] = authority_weight
@@ -303,11 +224,9 @@ class EnhancedKNNCollaborativeFilter:
                 **weight_components
             })
         
-        # Apply weights to create enhanced ratings
         enhanced_df['weight'] = [w['total_weight'] for w in weights_applied]
         enhanced_df['enhanced_rating'] = enhanced_df['base_rating'] * enhanced_df['weight']
         
-        # Normalize enhanced ratings to [0, 1] range
         max_rating = enhanced_df['enhanced_rating'].max()
         min_rating = enhanced_df['enhanced_rating'].min()
         
@@ -318,10 +237,8 @@ class EnhancedKNNCollaborativeFilter:
         else:
             enhanced_df['normalized_rating'] = enhanced_df['base_rating']
         
-        # Store enhanced ratings for analysis
         self.enhanced_ratings = enhanced_df
         
-        # Log enhancement statistics
         avg_weight = enhanced_df['weight'].mean()
         weight_std = enhanced_df['weight'].std()
         
@@ -343,10 +260,8 @@ class EnhancedKNNCollaborativeFilter:
             authority_weights = [w.get('authority', 1.0) for w in weights_applied]
             logger.info(f"   👤 Avg authority weight: {np.mean(authority_weights):.3f}")
         
-        # Create reader with enhanced rating scale
         reader = Reader(rating_scale=(0, 1))
         
-        # Load data into Surprise format
         data = Dataset.load_from_df(
             enhanced_df[['user_id', 'item_id', 'normalized_rating']], 
             reader
@@ -356,15 +271,8 @@ class EnhancedKNNCollaborativeFilter:
         return data
     
     def train(self, data: Dataset) -> None:
-        """
-        Train the enhanced KNN collaborative filtering model.
-        
-        Args:
-            data: Surprise Dataset object with enhanced ratings
-        """
         logger.info("🚀 Training Enhanced KNN Collaborative Filtering Model...")
         
-        # Build full trainset
         self.trainset = data.build_full_trainset()
         
         logger.info(f"📊 Training Data Statistics:")
@@ -372,32 +280,27 @@ class EnhancedKNNCollaborativeFilter:
         logger.info(f"   🎮 Items: {self.trainset.n_items:,}")
         logger.info(f"   💬 Ratings: {self.trainset.n_ratings:,}")
         
-        # Calculate sparsity
         sparsity = 1 - (self.trainset.n_ratings / (self.trainset.n_users * self.trainset.n_items))
         logger.info(f"   📈 Sparsity: {sparsity:.1%}")
         
-        # Adjust k based on data size to prevent issues
-        max_k = min(self.k, self.trainset.n_users - 1, 50)  # Limit k for sparse data
+        max_k = min(self.k, self.trainset.n_users - 1, 50)
         if max_k < self.k:
             logger.warning(f"   ⚠️  Reducing k from {self.k} to {max_k} due to data constraints")
             self.k = max_k
         
-        # Choose appropriate similarity measure based on sparsity
-        if sparsity > 0.99:  # Very sparse data
+        if sparsity > 0.99:
             logger.info("   🔧 Using MSD similarity for very sparse data")
-            self.sim_options['name'] = 'msd'  # Mean Squared Difference - more robust for sparse data
-        elif sparsity > 0.95:  # Sparse data
+            self.sim_options['name'] = 'msd'
+        elif sparsity > 0.95:
             logger.info("   🔧 Using Pearson correlation for sparse data")
             self.sim_options['name'] = 'pearson'
         
-        # Initialize KNN model with robust settings
         self.model = KNNBasic(
             k=self.k,
             sim_options=self.sim_options,
             verbose=True
         )
         
-        # Train the model
         logger.info(f"🤖 Training KNN model with k={self.k}...")
         logger.info(f"   🔧 Similarity: {self.sim_options['name']}")
         logger.info(f"   👤 User-based: {self.sim_options['user_based']}")
@@ -413,7 +316,6 @@ class EnhancedKNNCollaborativeFilter:
         except Exception as e:
             logger.error(f"❌ Training failed with {self.sim_options['name']} similarity: {e}")
             
-            # Fallback to simplest similarity measure
             logger.info("🔄 Falling back to MSD similarity...")
             self.sim_options['name'] = 'msd'
             self.model = KNNBasic(k=min(10, self.k), sim_options=self.sim_options, verbose=False)
@@ -428,16 +330,6 @@ class EnhancedKNNCollaborativeFilter:
                 raise
     
     def predict_rating(self, user_id: int, item_id: int) -> float:
-        """
-        Predict enhanced rating for a user-item pair.
-        
-        Args:
-            user_id: User identifier
-            item_id: Item (game) identifier
-            
-        Returns:
-            Predicted rating score
-        """
         if not self.is_trained:
             raise ValueError("Model must be trained before making predictions")
         
@@ -455,27 +347,14 @@ class EnhancedKNNCollaborativeFilter:
         n_recommendations: int = 10,
         exclude_seen: bool = True
     ) -> List[Tuple[int, float]]:
-        """
-        Get top-N enhanced recommendations for a user.
-        
-        Args:
-            user_id: User identifier
-            n_recommendations: Number of recommendations to return
-            exclude_seen: Whether to exclude items user has already interacted with
-            
-        Returns:
-            List of (item_id, predicted_rating) tuples
-        """
         if not self.is_trained:
             raise ValueError("Model must be trained before making predictions")
         
         logger.info(f"🎯 Generating {n_recommendations} recommendations for user {user_id}")
         
-        # Get all items
         all_items = set(self.trainset.all_items())
         logger.debug(f"   📊 Total items available: {len(all_items)}")
         
-        # Get items user has already rated (if excluding seen items)
         user_items = set()
         if exclude_seen:
             try:
@@ -488,7 +367,6 @@ class EnhancedKNNCollaborativeFilter:
         candidate_items = all_items - user_items
         logger.debug(f"   🎯 Candidate items for recommendation: {len(candidate_items)}")
         
-        # Generate predictions for all candidate items
         predictions = []
         processed_count = 0
         
@@ -503,10 +381,8 @@ class EnhancedKNNCollaborativeFilter:
                     logger.debug(f"   ⚙️  Processed {processed_count}/{len(candidate_items)} predictions...")
                     
             except ValueError:
-                # Item not in training set, skip
                 continue
         
-        # Sort by predicted rating and return top-N
         predictions.sort(key=lambda x: x[1], reverse=True)
         top_recommendations = predictions[:n_recommendations]
         
@@ -519,16 +395,6 @@ class EnhancedKNNCollaborativeFilter:
         return top_recommendations
     
     def get_similar_users(self, user_id: int, n_users: int = 10) -> List[Tuple[int, float]]:
-        """
-        Get most similar users to a given user.
-        
-        Args:
-            user_id: Target user identifier
-            n_users: Number of similar users to return
-            
-        Returns:
-            List of (user_id, similarity_score) tuples
-        """
         if not self.is_trained:
             raise ValueError("Model must be trained before finding similar users")
         
@@ -538,7 +404,6 @@ class EnhancedKNNCollaborativeFilter:
             logger.warning(f"User {user_id} not found in training set")
             return []
         
-        # Get user similarities
         similarities = []
         for other_inner_id in range(self.trainset.n_users):
             if other_inner_id != inner_user_id:
@@ -546,22 +411,10 @@ class EnhancedKNNCollaborativeFilter:
                 other_user_id = self.trainset.to_raw_uid(other_inner_id)
                 similarities.append((other_user_id, sim_score))
         
-        # Sort by similarity and return top-N
         similarities.sort(key=lambda x: x[1], reverse=True)
         return similarities[:n_users]
     
     def evaluate_model(self, data: Dataset, cv_folds: int = 5) -> Dict[str, float]:
-        """
-        Evaluate model performance using cross-validation.
-        
-        Args:
-            data: Surprise Dataset object
-            cv_folds: Number of cross-validation folds
-            
-        Returns:
-            Dictionary with evaluation metrics
-        """
-        # Perform cross-validation
         cv_results = cross_validate(
             self.model, 
             data, 
@@ -581,12 +434,6 @@ class EnhancedKNNCollaborativeFilter:
         return results
     
     def get_model_info(self) -> Dict:
-        """
-        Get comprehensive information about the trained model.
-        
-        Returns:
-            Dictionary with model information and enhancement statistics
-        """
         if not self.is_trained:
             return {"status": "not_trained"}
         
@@ -601,7 +448,6 @@ class EnhancedKNNCollaborativeFilter:
             "sparsity": 1 - (self.trainset.n_ratings / (self.trainset.n_users * self.trainset.n_items))
         }
         
-        # Add enhancement information
         enhancement_info = {
             "enhancements": {
                 "review_quality_weighting": self.use_review_quality,
@@ -611,7 +457,6 @@ class EnhancedKNNCollaborativeFilter:
             }
         }
         
-        # Add enhancement statistics if available
         if self.enhanced_ratings is not None:
             enhancement_stats = {
                 "enhancement_stats": {
@@ -635,21 +480,6 @@ def train_enhanced_knn_model(
     use_temporal_decay: bool = True,
     use_user_authority: bool = True
 ) -> EnhancedKNNCollaborativeFilter:
-    """
-    Convenience function to train an enhanced KNN collaborative filtering model.
-    
-    Args:
-        recommendations_df: User-item interaction data with Steam features
-        games_df: Game metadata
-        users_df: User profile data (optional)
-        k: Number of neighbors
-        use_review_quality: Whether to use review quality weighting
-        use_temporal_decay: Whether to use temporal decay
-        use_user_authority: Whether to use user authority weighting
-        
-    Returns:
-        Trained EnhancedKNNCollaborativeFilter model
-    """
     logger.info("🚀 Starting Enhanced KNN Model Training Pipeline...")
     
     model = EnhancedKNNCollaborativeFilter(
@@ -666,24 +496,18 @@ def train_enhanced_knn_model(
     return model
 
 
-# Keep the original class for backward compatibility, but mark as deprecated
 class KNNCollaborativeFilter(EnhancedKNNCollaborativeFilter):
-    """
-    Backward compatibility wrapper for the enhanced KNN model.
-    """
-    
     def __init__(self, k: int = 40, sim_options: Optional[Dict] = None):
         logger.warning("⚠️  Using deprecated KNNCollaborativeFilter. Use EnhancedKNNCollaborativeFilter for better performance.")
         super().__init__(
             k=k, 
             sim_options=sim_options,
-            use_review_quality=False,  # Disable enhancements for backward compatibility
+            use_review_quality=False,
             use_temporal_decay=False,
             use_user_authority=False
         )
     
     def prepare_data(self, recommendations_df: pd.DataFrame, games_df: pd.DataFrame) -> Dataset:
-        """Backward compatibility method."""
         return self.prepare_enhanced_data(recommendations_df, games_df, None)
 
 
@@ -692,9 +516,6 @@ def train_knn_model(
     games_df: pd.DataFrame,
     k: int = 40
 ) -> KNNCollaborativeFilter:
-    """
-    Backward compatibility function.
-    """
     logger.warning("⚠️  Using deprecated train_knn_model. Use train_enhanced_knn_model for better performance.")
     model = KNNCollaborativeFilter(k=k)
     data = model.prepare_data(recommendations_df, games_df)
@@ -703,23 +524,19 @@ def train_knn_model(
 
 
 if __name__ == "__main__":
-    # Example usage with enhanced features
     import sys
     import os
     sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
     
     from src.data_processing.data_loader_v2 import SteamDataLoaderV2
     
-    # Configure logging for demo
     logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
     
     try:
-        # Load data
         logger.info("🔄 Loading Steam dataset...")
         loader = SteamDataLoaderV2()
         games_df, recommendations_df, games_metadata, users_df = loader.load_all_data()
         
-        # Train enhanced KNN model
         logger.info("🚀 Training Enhanced KNN Model...")
         enhanced_model = train_enhanced_knn_model(
             recommendations_df, 
@@ -731,13 +548,11 @@ if __name__ == "__main__":
             use_user_authority=True
         )
         
-        # Get model info
         model_info = enhanced_model.get_model_info()
         logger.info("📊 Enhanced Model Info:")
         for key, value in model_info.items():
             logger.info(f"   {key}: {value}")
         
-        # Get recommendations for a user
         if len(recommendations_df) > 0:
             test_user = recommendations_df['user_id'].iloc[0]
             recommendations = enhanced_model.get_user_recommendations(user_id=test_user, n_recommendations=5)

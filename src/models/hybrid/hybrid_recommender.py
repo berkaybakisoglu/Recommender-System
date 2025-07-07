@@ -1332,7 +1332,7 @@ class EnhancedHybridRecommender:
             affordable_recs = []
             for game_id, score, explanation in recommendations:
                 game_info = self.games_df[self.games_df['app_id'] == game_id].iloc[0]
-                if game_info['price'] <= budget:
+                if game_info['price_final'] <= budget:
                     affordable_recs.append((game_id, score, explanation))
                     if len(affordable_recs) >= n_final:
                         break
@@ -1351,7 +1351,7 @@ class EnhancedHybridRecommender:
         
         for game_id, score, explanation in recommendations:
             game_info = self.games_df[self.games_df['app_id'] == game_id].iloc[0]
-            price = float(game_info['price'])
+            price = float(game_info['price_final'])
             
             if price <= budget:
                 # Value score combines recommendation score and price efficiency
@@ -1387,7 +1387,7 @@ class EnhancedHybridRecommender:
         
         for game_id, score, explanation in recommendations:
             game_info = self.games_df[self.games_df['app_id'] == game_id].iloc[0]
-            price = float(game_info['price'])
+            price = float(game_info['price_final'])
             
             # Focus on games that use a significant portion of budget (30-100%)
             if budget * 0.3 <= price <= budget:
@@ -1397,7 +1397,7 @@ class EnhancedHybridRecommender:
         if not premium_recs:
             for game_id, score, explanation in recommendations:
                 game_info = self.games_df[self.games_df['app_id'] == game_id].iloc[0]
-                if game_info['price'] <= budget:
+                if game_info['price_final'] <= budget:
                     premium_recs.append((game_id, score, explanation))
                     break
         
@@ -1421,7 +1421,7 @@ class EnhancedHybridRecommender:
         
         # Remaining budget for value games
         remaining_budget = budget - sum(
-            float(self.games_df[self.games_df['app_id'] == game_id].iloc[0]['price'])
+            float(self.games_df[self.games_df['app_id'] == game_id].iloc[0]['price_final'])
             for game_id, _, _ in premium_games
         )
         
@@ -1464,7 +1464,7 @@ class EnhancedHybridRecommender:
         """Create a value-focused bundle."""
         
         # Sort by price (ascending) and rating (descending)
-        value_games = games.sort_values(['price', 'positive_ratio'], ascending=[True, False])
+        value_games = games.sort_values(['price_final', 'positive_ratio'], ascending=[True, False])
         
         selected_games = []
         total_cost = 0.0
@@ -1472,14 +1472,14 @@ class EnhancedHybridRecommender:
         for _, game in value_games.iterrows():
             if len(selected_games) >= size:
                 break
-            if total_cost + game['price'] <= budget:
+            if total_cost + game['price_final'] <= budget:
                 selected_games.append({
                     'game_id': int(game['app_id']),
                     'name': game['title'],
-                    'price': float(game['price']),
+                    'price': float(game['price_final']),
                     'rating': float(game['positive_ratio'])
                 })
-                total_cost += game['price']
+                total_cost += game['price_final']
         
         if len(selected_games) >= 2:  # Minimum bundle size
             return {
@@ -1508,21 +1508,21 @@ class EnhancedHybridRecommender:
         
         for min_price, max_price in price_tiers:
             tier_games = games[
-                (games['price'] >= min_price) & 
-                (games['price'] <= max_price)
+                (games['price_final'] >= min_price) & 
+                (games['price_final'] <= max_price)
             ].nlargest(games_per_tier, 'positive_ratio')
             
             for _, game in tier_games.iterrows():
                 if len(selected_games) >= size:
                     break
-                if total_cost + game['price'] <= budget:
+                if total_cost + game['price_final'] <= budget:
                     selected_games.append({
                         'game_id': int(game['app_id']),
                         'name': game['title'],
-                        'price': float(game['price']),
+                        'price': float(game['price_final']),
                         'rating': float(game['positive_ratio'])
                     })
-                    total_cost += game['price']
+                    total_cost += game['price_final']
         
         if len(selected_games) >= 2:
             return {
@@ -1540,7 +1540,7 @@ class EnhancedHybridRecommender:
         
         # Focus on higher-priced, highly-rated games
         premium_games = games[
-            games['price'] >= budget * 0.2  # At least 20% of budget per game
+            games['price_final'] >= budget * 0.2  # At least 20% of budget per game
         ].nlargest(size * 2, 'positive_ratio')  # Get more options to choose from
         
         selected_games = []
@@ -1550,14 +1550,14 @@ class EnhancedHybridRecommender:
         for _, game in premium_games.iterrows():
             if len(selected_games) >= target_games:
                 break
-            if total_cost + game['price'] <= budget:
+            if total_cost + game['price_final'] <= budget:
                 selected_games.append({
                     'game_id': int(game['app_id']),
                     'name': game['title'],
-                    'price': float(game['price']),
+                    'price': float(game['price_final']),
                     'rating': float(game['positive_ratio'])
                 })
-                total_cost += game['price']
+                total_cost += game['price_final']
         
         if len(selected_games) >= 1:
             return {
@@ -1580,7 +1580,7 @@ class EnhancedHybridRecommender:
     ) -> Dict:
         """Generate budget-specific explanation."""
         
-        price = float(game_info['price'])
+        price = float(game_info['price_final'])
         rating = float(game_info['positive_ratio'])
         
         budget_explanation = base_explanation.copy()
@@ -1599,7 +1599,7 @@ class EnhancedHybridRecommender:
     def _generate_value_description(self, game: pd.Series, metric: str) -> str:
         """Generate value description for a game."""
         
-        price = game['price']
+        price = game['price_final']
         rating = game['positive_ratio']
         playtime = game['average_playtime']
         value_score = game['value_score']
